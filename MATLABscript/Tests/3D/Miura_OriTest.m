@@ -14,7 +14,7 @@
 % configuration. This test is interested in the folding of these four 
 % panels and the resultant energy calculation.
 
-test = "axial";
+test = "axial"; % [reference, axial, shear]. Shear tests must have non-orthogonal reference lattice vectors.
 
 % Initial x-values
 s = 0.500025001;
