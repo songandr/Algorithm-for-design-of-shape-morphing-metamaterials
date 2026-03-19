@@ -9,3 +9,5 @@ The files in the MATLABscript repository are all that are necessary for running 
 4. Use plot4vectors3D for visualization. If a new topology (not Miura, Miura4x4, rotating squares, helical waterbomb), the necessary edge graphs must be written into the plot1vector.m, plot1vector3D.m files beforehand.
 
 See /MATLABscript/Tests directory for examples. Post-processing results is recommended for all design generation, done effectively by running minimizationAlgorithm again on outputs perturbed by RNG vectors sized 2N and 3N (where N is the number of nodes) both of which sampled by a normal random distribution ~ (0, epsilon). This ensures results indeed sit at local minimum in the energy landscape (opposed to saddle points, etc).
+
+For better visualization in Mathematica, use makeMathematicaCoords.m to output Mathematica compatible coordinate data. See /Mathematica_Files directory for Mathematica visualization examples.
