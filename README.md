@@ -1,4 +1,4 @@
-# Algorithm-for-design-of-shape-morphing-metamaterials
+# Algorithm for design of shape morphing metamaterials
 Elastic energy minimization algorithm discussed in the manuscript "Algorithmic design framework for shape-morphing metamaterials" section 3.
 
 The files in the MATLABscript repository are all that are necessary for running the algorithm discussed in section 3 of "Algorithmic design framework for shape-morphing metamaterials." To generate designs of desired topology:
