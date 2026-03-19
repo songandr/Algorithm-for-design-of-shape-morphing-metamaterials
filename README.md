@@ -1,7 +1,7 @@
 # Algorithm-for-design-of-shape-morphing-metamaterials
 Elastic energy minimization algorithm discussed in the manuscript "Algorithmic design framework for shape-morphing metamaterials" section 3.
 
-The files in this repository are all that are necessary for running the algorithm discussed in section 3 of "Algorithmic design framework for shape-morphing metamaterials." To generate designs of desired topology:
+The files in the MATLABscript repository are all that are necessary for running the algorithm discussed in section 3 of "Algorithmic design framework for shape-morphing metamaterials." To generate designs of desired topology:
 
 1. Set up initial conditions for x in 2D, y in 3D, R = Id in R^{3x3}, the rigidity constraint matrices L_0 and L, and panel assignments Pj.
 2. Set the desired tolerance (e-5 recommended for max strain ~0.1%). 
