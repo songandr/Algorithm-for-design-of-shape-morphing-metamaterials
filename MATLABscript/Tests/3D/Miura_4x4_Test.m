@@ -1,0 +1,461 @@
+% This script is designed as a test case for the MATLAB function 
+% minimizationAlgorithm which is based on the paper:
+% 
+% "Elastic Energy Approximation and Minimization Algorithm for Foldable
+% Meshes"
+%
+% By: Antoine Moats, Andrew Song
+% Under the Supervision of Dr. Paul Plucinsky
+% Viterbi School of Engineering, Unversity of Southern California 
+%
+% Updated Date: 09/02/25.
+%
+% The initial configuration consists of 16 panels in the Miura-Ori
+% configuration (4x4 unit cell). This test is interested in the folding of these 
+% panels and the resultant energy calculation.
+
+% Test Parameters
+test = "conditioned_35";
+crease_test = "Miura4x4";
+%crease_test = "Miura4x4_diagonal1";
+panelRemoval = 1;
+
+% Initial x-values
+s = 0.25;
+
+% Idealized ICs
+%{
+gamma = pi/4;
+x1 = [0; 0];
+x2 = s*[cos(gamma); sin(gamma)];
+x3 = s*[2*cos(gamma); 0];
+x4 = x3 + x2;
+x5 = 2*x3;
+x6 = x5 + s*[0; 1];
+x7 = x4 + s*[0; 1];
+x8 = s*[2*cos(gamma); 1];
+x9 = s*[cos(gamma); sin(gamma)+1];
+x10 = s*[0; 1];
+x11 = s*[0; 2];
+x12 = s*[cos(gamma); sin(gamma)+2];
+x13 = s*[2*cos(gamma); 2];
+x14 = x13 + x2;
+x15 = x6 + x10;
+x16 = x15 + x10;
+x17 = x14 + x10;
+x18 = x13 + x10;
+x19 = x12 + x10;
+x20 = x11 + x10;
+x21 = x20 + x10;
+x22 = x19 + x10;
+x23 = x18 + x10;
+x24 = x17 + x10;
+x25 = x16 + x10;
+%}
+
+% Randomized ICs
+l1R = [1; 0];
+l2R = [0; 1];
+
+x1 = [0; 0];
+x5 = x1 + l1R;
+x21 = x1 + l2R;
+x25 = x1 + l1R + l2R;
+x3 = (x1+x5)/2;
+x11 = (x1+x21)/2;
+x15 = (x5+x25)/2;
+x13 = (x11+x15)/2;
+x23 = (x21+x25)/2;
+x2 = (x1+x3)/2;
+x4 = (x3+x5)/2;
+x6 = (x5+x15)/2;
+x8 = (x3+x13)/2;
+x7 = (x6+x8)/2;
+x10 = (x1+x11)/2;
+x9 = (x8+x10)/2;
+x12 = (x11+x13)/2;
+x14 = (x13+x15)/2;
+x16 = (x15+x25)/2;
+x18 = (x13+x23)/2;
+x17 = (x16+x18)/2;
+x20 = (x11+x21)/2;
+x19 = (x18+x20)/2;
+x22 = (x21+x23)/2;
+x24 = (x23+x25)/2;
+
+rng(2, "twister");
+r = normrnd(0, 1/32, [50, 1]);
+% only perturb eligible DoFs
+r(1:2) = 0; % fixed first node
+r(41:50) = 0; % top nodes
+r(9:12) = 0; % side nodes
+r(29:32) = 0; % side nodes
+
+x = [x1; x2; x3; x4; x5; x6; x7; x8; x9; x10; x11; x12; x13; x14; x15; x16; x17; x18; x19; x20; x21; x22; x23; x24; x25];
+x = x+r;
+
+% maintain original lattice vectors post-perturbation
+x(11) = x(11) + r(19); % shift right side nodes
+x(12) = x(12) + r(20);
+x(29) = x(29) + r(21);
+x(30) = x(30) + r(22);
+x(31) = x(31) + r(39);
+x(32) = x(32) + r(40);
+x(43) = x(43) + r(3); % shift top side nodes
+x(44) = x(44) + r(4);
+x(45) = x(45) + r(5);
+x(46) = x(46) + r(6);
+r(47) = x(47) + r(7);
+x(48) = x(48) + r(8);
+
+phi = zeros(length(x)/2*3, length(x));
+if test == "reference"
+    
+    for i = 1:length(x)/2*3
+        if mod(i,3) == 1
+            phi(i,i-floor(i/3)) = 1;
+        elseif mod(i,3) == 2
+            phi(i,i-floor(i/3)) = 1;
+        end
+    end
+    
+elseif test == "axial"
+    lambda_1 = 0.50; % axial deformation
+    lambda_2 = 1.00;
+    for i = 1:length(x)/2*3
+        if mod(i,3) == 1
+            phi(i,i-floor(i/3)) = lambda_1;
+        elseif mod(i,3) == 2
+            phi(i,i-floor(i/3)) = lambda_2;
+        end    
+    end
+
+elseif test == "shear"
+    %{
+    gamma_x = 0;
+
+    % sheared initial x case
+    phi_x = zeros(length(x), length(x));
+    for i = 1:length(x)
+        phi_x(i,i) = 1;
+        if mod(i,2) == 1
+            phi_x(i,i+1) = gamma_x;
+        else
+            phi_x(i,i-1) = gamma_x;
+        end
+    end
+    x = phi_x*x;
+    %}
+    
+    gamma = 0.20;
+    for i = 1:length(x)/2*3
+        if mod(i,3) == 1
+            phi(i,i-floor(i/3)) = 1;
+            phi(i,i-floor(i/3)+1) = gamma;
+        elseif mod(i,3) == 2
+            phi(i,i-floor(i/3)) = 1;
+            phi(i,i-floor(i/3)-1) = gamma;
+        end    
+    end
+
+elseif test == "mix"
+    gamma = 0.20; % shear deformation
+    lambda_1 = 0.75; % axial deformation
+    lambda_2 = 0.75;
+    for i = 1:length(x)/2*3
+        if mod(i,3) == 1
+            phi(i,i-floor(i/3)) = lambda_1;
+            phi(i,i-floor(i/3)+1) = gamma;
+        elseif mod(i,3) == 2
+            phi(i,i-floor(i/3)) = lambda_2;
+            phi(i,i-floor(i/3)-1) = gamma;
+        end    
+    end
+
+elseif test == "conditioned_20"
+    % xOpt from gamma = 0.20, lambda = 0.75, seed: rng(2, "twister"), 
+    x = [1.26695175141596e-19; -6.48737621103359e-32; 0.267950695723525; -0.00856557126671520; 0.597275108267772; -0.0658561604695548; 0.758533148651623; -0.0477120791408657; 1; -3.18787862285775e-18; 1.06599026554045; 0.135845832613217; 0.758646412563898; 0.107940023384610; 0.640721269680140; 0.102055475820708; 0.298056417759411; 0.308396821089452; 0.0659902655404491; 0.135845832613217; -0.0627659421090146; 0.507709660968152; 0.0969766982619429; 0.648830182538741; 0.438407409494005; 0.456358508980193; 0.740652566802095; 0.486724393899420; 0.937234057890986; 0.507709660968153; 0.945282514630622; 0.807480337714779; 0.781647830773168; 0.747968088765264; 0.535941073133419; 0.722221132381985; 0.215496386781822; 0.809453296724130; -0.0547174853693774; 0.807480337714779; -5.13550312371518e-18; 1; 0.267950695723525; 0.991434428733284; 0.597275108267772; 0.934143839530445; 0.793812214934423; 0.952287920859134; 1; 1];
+    % yOpt from gamma = 0.20, lambda = 0.75, seed: rng(2, "twister"), 
+    y = [1.14135889874404e-33; 1.01826518992631e-18; -4.61921801435536e-18; 0.261716129567368; 0.0448276061040079; -0.0250377639217541; 0.436320144852988; 0.205026963679619; -0.259580390726072; 0.561879025144747; 0.189403475158481; -0.147345021203485; 0.75; 0.2; -1.18130607321628e-17; 0.802033348569237; 0.316962375885326; 0.0829045038932574; 0.552587446752796; 0.338116586475769; -0.0984359056810793; 0.458605529123422; 0.351880392867948; -0.171243500961822; 0.260497685677772; 0.295972764093041; 0.174172551995775; 0.0520333485692377; 0.116962375885326; 0.0829045038932573; 0.187277928653808; 0.311637804870438; -0.229870779558305; 0.338630606431490; 0.460147482377046; -0.182652037948484; 0.526791811584703; 0.544330485735345; -0.523242871832384; 0.775627234401789; 0.521549673617831; -0.346861448003352; 0.937277928653808; 0.511637804870438; -0.229870779558305; 0.917138666295388; 0.784095051681599; -0.108369649837651; 0.794389990760509; 0.757176961730687; -0.227283287020317; 0.599015100323342; 0.772288943417606; -0.374443270670963; 0.429488000194149; 0.633845970373430; -0.126630934082619; 0.167138666295388; 0.584095051681599; -0.108369649837651; 0.2; 0.75; 3.91359701774152e-19; 0.461716129567368; 0.794827606104008; -0.0250377639217542; 0.636320144852988; 0.955026963679620; -0.259580390726072; 0.788338324856848; 0.946459288415041; -0.147345021203485; 0.95; 0.95; 6.90416229466756e-18];
+    
+    delta = 0.07; % additional shear on top of gamma above with fixed lambdas
+    for i = 1:length(y)
+        if mod(i,3) == 1
+            y(i) = y(i) + delta*x(i-floor(i/3)+1); % y_{i,1} = y_{0,1} + delta*x_{0,2}
+            %y(i) = y(i) + delta*(x(i-floor(i/3)+1) - 0.5*x(i-floor(i/3))); % if further contraction is necessary
+        elseif mod(i,3) == 2 
+            y(i) = y(i) + delta*x(i-floor(i/3)-1); %y_{i,2} = y_{0,2} + delta*x_{0,1}
+            %y(i) = y(i) + delta*(x(i-floor(i/3)-1) - 0.5*x(i-floor(i/3))); % if further contraction is necessary
+        end
+    end
+
+elseif test == "conditioned_28"
+    % xOpt from gamma = 0.28, lambda = 0.75; see conditioned_20 above 
+    x = [1.16956000141296e-19; -6.85959494041963e-32; 0.263648456054710; -0.00830938488824884; 0.638133105865052; -0.0878169176446899; 0.773635949695853; -0.0662779093887950; 1; -3.34656760387148e-18; 1.07923943639164; 0.125108796340599; 0.774551511425953; 0.0625961887884249; 0.688748415828559; 0.0456780964248715; 0.300553839922697; 0.321186544895071; 0.0792394363916433; 0.125108796340599; -0.106776068316943; 0.546769856682162; 0.0429859317595547; 0.701721561987143; 0.429125786001006; 0.439880277027983; 0.733143035915184; 0.507421766998406; 0.893223931683058; 0.546769856682163; 0.929141910635002; 0.823871914370499; 0.782699927534252; 0.748967269672129; 0.549151002416303; 0.717073009587014; 0.177110013269285; 0.837588870875085; -0.0708580893649972; 0.823871914370499; -7.04052434619803e-18; 1; 0.263648456054710; 0.991690615111751; 0.638133105865052; 0.912183082355310; 0.808915015978653; 0.933722090611205; 1; 1];
+    % yOpt from gamma = 0.28, lambda = 0.75; see conditioned_20 above 
+    y = [-3.48915169333884e-33; 1.77392444356641e-18; -7.58024365339307e-18; 0.251017434769753; 0.0694618453458889; -0.0321646715760294; 0.485813659054501; 0.265056611053120; -0.261151469097747; 0.585189905934480; 0.252205277795856; -0.156610439161887; 0.750000000000000; 0.280000000000000; -1.23328617921278e-17; 0.812095854224971; 0.385395798070430; 0.0865784401108210; 0.581426721746624; 0.378130651691637; -0.121459633912567; 0.515361219953316; 0.378995872252953; -0.180968159094347; 0.246597245576512; 0.301866974286361; 0.207605813524479; 0.0620958542249716; 0.105395798070430; 0.0865784401108209; 0.239920942453258; 0.359680540331123; -0.252544301276526; 0.371247268463906; 0.520175506003352; -0.183191798458047; 0.626221864416010; 0.626352405104659; -0.566135920182750; 0.864150887688107; 0.630410266180165; -0.361916776453368; 0.989920942453258; 0.639680540331123; -0.252544301276526; 0.985621390514721; 0.881098446679265; -0.111516297288067; 0.882459189039047; 0.840760102588080; -0.233272844606698; 0.703335975439426; 0.852445529748230; -0.383765372698334; 0.470143549194844; 0.677304705828165; -0.125419218810888; 0.235621390514721; 0.601098446679265; -0.111516297288067; 0.280000000000000; 0.750000000000000; 8.91667578561599e-19; 0.531017434769753; 0.819461845345889; -0.0321646715760295; 0.765813659054501; 1.01505661105312; -0.261151469097747; 0.891649205646581; 1.01208341635504; -0.156610439161887; 1.03000000000000; 1.03000000000000; 9.89984209184458e-18];
+    
+    delta = 0.07; % additional shear on top of gamma above with fixed lambdas
+    for i = 1:length(y)
+        if mod(i,3) == 1
+            %y(i) = y(i) + delta*x(i-floor(i/3)+1); % y_{i,1} = y_{0,1} + delta*x_{0,2}
+            y(i) = y(i) + delta*(x(i-floor(i/3)+1) - 1.1*x(i-floor(i/3))); % if further contraction is necessary
+        elseif mod(i,3) == 2 
+            %y(i) = y(i) + delta*x(i-floor(i/3)-1); %y_{i,2} = y_{0,2} + delta*x_{0,1}
+            y(i) = y(i) + delta*(x(i-floor(i/3)-1) - 1.1*x(i-floor(i/3))); % if further contraction is necessary
+        end
+    end
+
+elseif test == "conditioned_35"
+    % xOpt from gamma = 0.35, lambda = 0.673; see conditioned_28 above 
+    x = [7.07759081486666e-20; -5.51893371254605e-32; 0.254334645538455; -0.00452203627420662; 0.642724914046687; -0.0909264406223934; 0.772487897978393; -0.0679042150824031; 1; -2.65929576639134e-18; 1.07618058031525; 0.125305403182899; 0.771715759718018; 0.0524912480065814; 0.691171801446607; 0.0345882632002104; 0.298602394889495; 0.323147343770554; 0.0761805803152487; 0.125305403182899; -0.132735150538694; 0.564495636985668; 0.0231261846951282; 0.718323801519067; 0.419778688222880; 0.442236006210470; 0.721583439188999; 0.522102778860930; 0.867264849461307; 0.564495636985669; 0.922354384584442; 0.831285987513876; 0.777376625639663; 0.753257773533795; 0.546285424557036; 0.719781727197889; 0.157832505162507; 0.851517996840257; -0.0776456154155572; 0.831285987513876; -6.63254208647857e-18; 1; 0.254334645538455; 0.995477963725793; 0.642724914046687; 0.909073559377607; 0.807766964261193; 0.932095784917597; 1; 1];
+    % yOpt from gamma = 0.35, lambda = 0.673; see conditioned_28 above 
+    y = [-9.00561201088777e-21; 2.13058468197095e-18; -9.06247990314967e-18; 0.228630730354827; 0.0993689910724733; -0.0437588550454732; 0.433472436697156; 0.344256134628057; -0.280360512091404; 0.521185351527859; 0.326188632730465; -0.170228533031100; 0.673000000000000; 0.350000000000000; -1.37918750133468e-17; 0.728493561643764; 0.453178507949612; 0.0914440710247845; 0.514687138493365; 0.443434542799739; -0.135728097554631; 0.458242433780564; 0.445396460297171; -0.196603527568431; 0.229237004035812; 0.310864666731938; 0.213539416349996; 0.0554935616437648; 0.103178507949613; 0.0914440710247844; 0.297070691335527; 0.311902963831328; -0.274198975353037; 0.422449726460631; 0.478760304060805; -0.199077219498326; 0.639431327641820; 0.644894136285250; -0.604194592832128; 0.861836989418320; 0.651615423935102; -0.382431984286410; 0.970070691335527; 0.661902963831328; -0.274198975353037; 0.974234087625518; 0.885152165303301; -0.117265033069350; 0.879968735861096; 0.846872712641261; -0.247102676288572; 0.714029309471926; 0.864488380964775; -0.408390551584954; 0.511816488804132; 0.637070971153277; -0.135997735022618; 0.301234087625518; 0.535152165303301; -0.117265033069350; 0.350000000000000; 0.673000000000000; 1.02378131830864e-18; 0.578630730354827; 0.772368991072473; -0.0437588550454733; 0.783472436697156; 1.01725613462806; -0.280360512091404; 0.894928163136184; 1.01153630592944; -0.170228533031100; 1.02300000000000; 1.02300000000000; 1.17115599686443e-17];
+
+    delta = 0.05; % additional shear on top of gamma above with fixed lambdas
+    for i = 1:length(y)
+        if mod(i,3) == 1
+            %y(i) = y(i) + delta*x(i-floor(i/3)+1); % y_{i,1} = y_{0,1} + delta*x_{0,2}
+            y(i) = y(i) + delta*(x(i-floor(i/3)+1) - 0.5*x(i-floor(i/3))); % if further contraction is necessary
+        elseif mod(i,3) == 2 
+            %y(i) = y(i) + delta*x(i-floor(i/3)-1); %y_{i,2} = y_{0,2} + delta*x_{0,1}
+            y(i) = y(i) + delta*(x(i-floor(i/3)-1) - 0.5*x(i-floor(i/3))); % if further contraction is necessary
+        end
+    end
+
+end
+
+if contains(test, "conditioned") == 0 % only applicable for ICs at the original reference config
+    y = phi*x;
+    % Bias mountain y's in the z-axis
+    epsilon = 0.05;
+    y(18) = y(18)+epsilon;
+    y(21) = y(21)+epsilon;
+    y(24) = y(24)+epsilon;
+    y(27) = y(27)+epsilon;
+    y(30) = y(30)+epsilon;
+    y(48) = y(48)+epsilon;
+    y(51) = y(51)+epsilon;
+    y(54) = y(54)+epsilon;
+    y(57) = y(57)+epsilon;
+    y(60) = y(60)+epsilon;
+end
+
+% x rigidity constraint matrix (11x25) of (2x2)
+L_0 = [eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
+    -eye(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
+     zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
+     zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
+     zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
+     zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), eye(2);
+     -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2), zeros(2);
+     zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2);
+     zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2);
+     zeros(2), zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2);
+     zeros(2), zeros(2), zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2)];
+    
+% y rigidity constraint matrix (11x25) of (3x3)
+L = [eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3);
+    -eye(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3);
+     zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3), zeros(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3);
+     zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3);
+     zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3), zeros(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3);
+     zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), eye(3);
+    -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3), zeros(3), zeros(3), zeros(3);
+     zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3), zeros(3), zeros(3);
+     zeros(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3), zeros(3);
+     zeros(3), zeros(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3);
+     zeros(3), zeros(3), zeros(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3)];
+
+% populate the vector numbering all of the panels
+J = 1:16;
+
+% index set for each panel 
+F1 = [1, 2, 9, 10];
+F2 = [2, 3, 8, 9];
+F3 = [3, 4, 7, 8];
+F4 = [4, 5, 6, 7];
+F5 = [6, 7, 14, 15];
+F6 = [7, 8, 13, 14];
+F7 = [8, 9, 12, 13];
+F8 = [9, 10, 11, 12];
+F9 = [11, 12, 19, 20];
+F10 = [12, 13, 18, 19];
+F11 = [13, 14, 17, 18];
+F12 = [14, 15, 16, 17];
+F13 = [16, 17, 24, 25];
+F14 = [17, 18, 23, 24];
+F15 = [18, 19, 22, 23];
+F16 = [19, 20, 21, 22];
+
+if panelRemoval == 1
+    J = 1:15;
+    F7 = F8;
+    F8 = F9;
+    F9 = F10;
+    F10 = F11;
+    F11 = F12;
+    F12 = F13;
+    F13 = F14;
+    F14 = F15;
+    F15 = F16;
+elseif panelRemoval == 2
+    J = 1:14;
+    F7 = F8;
+    F8 = F9;
+    F9 = F10;
+    F10 = F12;
+    F11 = F13;
+    F12 = F14;
+    F13 = F15;
+    F14 = F16;
+end
+
+if crease_test == "Miura4x4_diagonal1" || crease_test == "Miura4x4_diagonal1_flip" % middle diagonal crease
+    F20 = F16;
+    F19 = F15;
+    F18 = F14;
+    F17 = [17, 24, 25];
+    F16 = [16, 17, 25];
+    F15 = F12;
+    F14 = [13, 14, 17];
+    F13 = [13, 17, 18];
+    F12 = F10;
+    F11 = F9;
+    F10 = F8;
+    F9 = [9, 12, 13];
+    F8 = [8, 9, 13];
+    F7 = F6;
+    F6 = F5;
+    F5 = F4;
+    F4 = F3;
+    F3 = F2;
+    F2 = [1, 2, 9];
+    F1 = [1, 9, 10];
+
+    if crease_test == "Miura4x4_diagonal1_flip"
+        F1 = [1, 2, 10];
+        F2 = [2, 9, 10];
+        F8 = [8, 12, 13];
+        F9 = [8, 9, 12];
+        F13 = [13, 14, 18];
+        F14 = [14, 17, 18];
+        F16 = [16, 24, 25];
+        F17 = [16, 17, 24];
+    end    
+
+    T17 = F17;
+    T18 = F18;
+    T19 = F19;
+    T20 = F20;
+    J = 1:20;
+end
+
+if crease_test == "Miura4x4_diagonal2" || crease_test == "Miura4x4_diagonal1_flip" % 2 additional diagonal creases
+    F24 = F16;
+    F23 = [19; 22; 23];
+    F22 = [19; 18; 23];
+    F21 = F14;
+    F20 = [17; 24; 25];
+    F19 = [16; 17; 25];
+    F18 = F12;
+    F17 = [13; 14; 17];
+    F16 = [13; 17; 18];
+    F15 = F10;
+    F14 = [11; 12; 19];
+    F13 = [11; 19; 20];
+    F12 = F8;
+    F11 = [9; 12; 13];
+    F10 = [8; 9; 13];
+    F9 = F6;
+    F8 = [7; 14; 15];
+    F7 = [6; 7; 15];
+    F6 = F4;
+    F5 = [3; 4; 7];
+    F4 = [3; 7; 8];
+    F3 = F2;
+    F2 = [1; 2; 9];
+    F1 = [1; 9; 10];
+
+    if crease_test == "Miura4x4_diagonal2_flip"
+        F1 = [1, 2, 10];
+        F2 = [2, 9, 10];
+        F4 = [3, 4, 8];
+        F5 = [4, 7, 8];
+        F7 = [6, 14, 15];
+        F8 = [6, 7, 14];
+        F9 = [8, 9, 12];
+        F10 = [8, 12, 13];
+        F11 = [8, 9, 12];
+        F13 = [11, 12, 20];
+        F14 = [12, 19, 20];
+        F16 = [13, 14, 18];
+        F17 = [14, 17, 18];
+        F19 = [16, 24, 25];
+        F20 = [16, 17, 24];
+        F22 = [18, 22, 23];
+        F23 = [18, 19, 22];
+    end   
+
+    T17 = F17;
+    T18 = F18;
+    T19 = F19;
+    T20 = F20;
+    T21 = F21;
+    T22 = F22;
+    T23 = F23;
+    T24 = F24;
+    J = 1:24;
+end
+
+T1 = F1;
+T2 = F2;
+T3 = F3;
+T4 = F4;
+T5 = F5;
+T6 = F6;
+T7 = F7;
+T8 = F8;
+T9 = F9;
+T10 = F10;
+T11 = F11;
+T12 = F12;
+T13 = F13;
+T14 = F14;
+if panelRemoval ~= 2
+    T15 = F15;
+end
+if panelRemoval == 0
+    T16 = F16;
+end
+
+% 3D array containing index set of x coordinates for panel j
+Tj = cell(length(J), 1);
+for j=1:length(J)
+    Tj{j} = eval(sprintf('T%d', j));
+end
+
+Fj = Tj;
+
+% Initial R 
+for j = 1:length(J)
+    R{j} = eye(3); % identity matrix
+end
+
+% initial tolerance for minimization
+tol = 10^(-5);
+
+[yOpt, xOpt, Ropt] = minimizationAlgorithmNew(x, y, Fj, Tj, J, R, L, L_0, tol);
+
+titles = {'Initial X', 'Initial Y', 'Final X', 'Final Y'};
+vectors = {x, y, xOpt, yOpt};
+visualizeLatticeVec = true;
+
+plot4vectors3D(vectors, titles, visualizeLatticeVec, crease_test);
+
+% check for concavity
+if (xOpt(24)-xOpt(22))/(xOpt(23)-xOpt(21)) * (xOpt(37)-xOpt(21)) + xOpt(22) < xOpt(38)
+    disp("Convex!")
+else
+    disp("Concave...")
+end
