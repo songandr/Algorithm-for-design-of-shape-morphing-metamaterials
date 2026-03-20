@@ -30,6 +30,9 @@ function [yOpt, xOpt, Ropt] = minimizationAlgorithm(x, y, Fj, Tj, J, R, L, L_0, 
 % xMin: x coordinate 2-D array that minimizes the elastic energy based on
 % given rigidity constraints  
 % Ropt: array of rotation matrices for minimizes the elastic energy  
+%
+% Comment out 91-96, 135-141, 224-231 to reduce display clutter
+% Comment out 144-158, 235-246 to remove energy plots
 
 % initialize cj, rij vectors
 n = length(y); % number of vertices * 3
@@ -86,12 +89,12 @@ for j = 1:lenJ
         E{count} = E{count} + norm(y(3*k-2:3*k, 1) - cj{j} - R{j}*[rij1; rij2; 0])^2; 
     end
 end 
-
+%{
 disp("-------------------------------------")
 disp("Iteration number: " + num2str(count));
 disp("Initial Energy Value: " + num2str(E{count}));
 disp("-------------------------------------")
-
+%}
 count = count + 1;
 E{count} = 0; 
 
@@ -138,6 +141,7 @@ disp("Current Error Value: " + num2str(err));
 disp("-------------------------------------")
 
 % plot energy over iterations
+
 figure
 xlabel("Iteration Number [#]")
 ylabel("Energy [L^2]");
@@ -159,6 +163,7 @@ check = 0; % checker for if x was optimized consecutively
 max_x_attempts = 2; % number of times x must be consecutively optimized before breaking loop
 optY = 0; % number of times R <-> y has been optimized for the given x
 max_y_attempts = 10; % number of times R <-> y can be optimized before forcing an x optimization
+force_x = 0; % checker for if x optimization should be forced
 finalLoop = 0; % checker for if x is converged and R <-> y must be optimized for final
 converged = 0; % checker for if R, y, and x have been optimized (R <-> y is complete once finalLoop = 1)
 
@@ -186,9 +191,9 @@ while err > tol || converged == 0 % optimize until convergence in R, y, and x
         disp("Not converging...")
         break
     end
-
-    if optY == max_y_attempts
-        optX = 1; % force x optimization after max_y_attempts of R <-> y optimization
+    
+    if optY >= max_y_attempts
+        force_x = 1; % force x optimization after max_y_attempts of R <-> y optimization
         disp("Forcing x optimization...")
     end
 
@@ -226,8 +231,9 @@ while err > tol || converged == 0 % optimize until convergence in R, y, and x
     disp("Current Energy Value: " + num2str(E{count}));
     disp("Current Error Value: " + num2str(err));
     disp("-------------------------------------")
-    
+
     % plotting the results of the algorithm in real time
+    
     hold on
     if optX ~= 1
         plot(count-1, E{count}, 'o', 'MarkerFaceColor', [0.10, 0.60, 0.9], 'MarkerEdgeColor', [0.10, 0.60, 0.9]);
@@ -238,10 +244,11 @@ while err > tol || converged == 0 % optimize until convergence in R, y, and x
     drawnow; % ensures that the updated point is plotted
     pause(0.1);
     hold off
-
+    
     % setting boolean parameters for x optimization check
-    if optX == 0 && err < tol % x should be optimized next iteration (R <-> y loop converged):
+    if (optX == 0 && err < tol) || force_x % x should be optimized next iteration (R <-> y loop converged OR max_y_attempts reached):
         optX = 1;
+        force_x = 0; % reset the checker
         if finalLoop % energy has converged for R, y, and x minimizations
             disp("Converged!")
             converged = 1;
