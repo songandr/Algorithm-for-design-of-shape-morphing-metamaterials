@@ -34,6 +34,10 @@ function [yOpt, xOpt, Ropt] = minimizationAlgorithm(x, y, Fj, Tj, J, R, L, L_0, 
 % Comment out 91-96, 135-141, 224-231 to reduce display clutter
 % Comment out 144-158, 235-246 to remove energy plots
 
+% Implement as input eventually
+plotCheck = 0;
+textOutput = 1;
+
 % initialize cj, rij vectors
 n = length(y); % number of vertices * 3
 lenJ = length(J);
@@ -89,12 +93,14 @@ for j = 1:lenJ
         E{count} = E{count} + norm(y(3*k-2:3*k, 1) - cj{j} - R{j}*[rij1; rij2; 0])^2; 
     end
 end 
-%{
+
+if textOutput
 disp("-------------------------------------")
 disp("Iteration number: " + num2str(count));
 disp("Initial Energy Value: " + num2str(E{count}));
 disp("-------------------------------------")
-%}
+end
+
 count = count + 1;
 E{count} = 0; 
 
@@ -134,14 +140,16 @@ x = xNew;
 
 err = abs(E{count}-E{count-1});
 
+if textOutput
 disp("Iteration number: " + num2str(count));
 disp("Previous Energy Value: " + num2str(E{count-1}));
 disp("Current Energy Value: " + num2str(E{count}));
 disp("Current Error Value: " + num2str(err));
 disp("-------------------------------------")
+end
 
 % plot energy over iterations
-
+if plotCheck
 figure
 xlabel("Iteration Number [#]")
 ylabel("Energy [L^2]");
@@ -155,7 +163,7 @@ for i = 1:length(E)
     drawnow; % ensures that the updated point is plotted
     pause(0.5);
 end
-
+end
 % initialize while loop parameters
 optX = 0; % X needs (not) to be optimized this iteration
 optX_count = 1; % counter for # of times x was optimized; see line 66
@@ -194,7 +202,9 @@ while err > tol || converged == 0 % optimize until convergence in R, y, and x
     
     if optY >= max_y_attempts
         force_x = 1; % force x optimization after max_y_attempts of R <-> y optimization
+        if textOutput
         disp("Forcing x optimization...")
+        end
     end
 
     % compute cj and rij vectors
@@ -226,14 +236,16 @@ while err > tol || converged == 0 % optimize until convergence in R, y, and x
     x = xNew;
 
     % showing the results of the algorithm in real time
+    if textOutput
     disp("Iteration number: " + num2str(count));
     disp("Previous Energy Value: " + num2str(E{count-1}));
     disp("Current Energy Value: " + num2str(E{count}));
     disp("Current Error Value: " + num2str(err));
     disp("-------------------------------------")
+    end
 
     % plotting the results of the algorithm in real time
-    
+    if plotCheck
     hold on
     if optX ~= 1
         plot(count-1, E{count}, 'o', 'MarkerFaceColor', [0.10, 0.60, 0.9], 'MarkerEdgeColor', [0.10, 0.60, 0.9]);
@@ -244,7 +256,7 @@ while err > tol || converged == 0 % optimize until convergence in R, y, and x
     drawnow; % ensures that the updated point is plotted
     pause(0.1);
     hold off
-    
+    end
     % setting boolean parameters for x optimization check
     if (optX == 0 && err < tol) || force_x % x should be optimized next iteration (R <-> y loop converged OR max_y_attempts reached):
         optX = 1;
