@@ -4,59 +4,25 @@
 % "Elastic Energy Approximation and Minimization Algorithm for Foldable
 % Meshes"
 %
-% By: Antoine Moats, Andrew Song
+% By: Andrew Song
 % Under the Supervision of Dr. Paul Plucinsky
 % Viterbi School of Engineering, Unversity of Southern California 
 %
-% Updated Date: 09/02/25.
+% Updated Date: 03/20/26.
 %
 % The initial configuration consists of 16 panels in the Miura-Ori
 % configuration (4x4 unit cell). This test is interested in the folding of these 
 % panels and the resultant energy calculation.
 
 % Test Parameters
-test = "conditioned_35";
+test = "axial";
 crease_test = "Miura4x4";
 %crease_test = "Miura4x4_diagonal1";
-panelRemoval = 1;
+panelRemoval = 0;
 
 % Initial x-values
-s = 0.25;
-
-% Idealized ICs
-%{
-gamma = pi/4;
-x1 = [0; 0];
-x2 = s*[cos(gamma); sin(gamma)];
-x3 = s*[2*cos(gamma); 0];
-x4 = x3 + x2;
-x5 = 2*x3;
-x6 = x5 + s*[0; 1];
-x7 = x4 + s*[0; 1];
-x8 = s*[2*cos(gamma); 1];
-x9 = s*[cos(gamma); sin(gamma)+1];
-x10 = s*[0; 1];
-x11 = s*[0; 2];
-x12 = s*[cos(gamma); sin(gamma)+2];
-x13 = s*[2*cos(gamma); 2];
-x14 = x13 + x2;
-x15 = x6 + x10;
-x16 = x15 + x10;
-x17 = x14 + x10;
-x18 = x13 + x10;
-x19 = x12 + x10;
-x20 = x11 + x10;
-x21 = x20 + x10;
-x22 = x19 + x10;
-x23 = x18 + x10;
-x24 = x17 + x10;
-x25 = x16 + x10;
-%}
-
-% Randomized ICs
 l1R = [1; 0];
 l2R = [0; 1];
-
 x1 = [0; 0];
 x5 = x1 + l1R;
 x21 = x1 + l2R;
@@ -83,8 +49,9 @@ x19 = (x18+x20)/2;
 x22 = (x21+x23)/2;
 x24 = (x23+x25)/2;
 
-rng(2, "twister");
-r = normrnd(0, 1/32, [50, 1]);
+% Randomized ICs
+rng(3, "twister");
+r = normrnd(0, 1/50, [50, 1]);
 % only perturb eligible DoFs
 r(1:2) = 0; % fixed first node
 r(41:50) = 0; % top nodes
@@ -105,7 +72,7 @@ x(43) = x(43) + r(3); % shift top side nodes
 x(44) = x(44) + r(4);
 x(45) = x(45) + r(5);
 x(46) = x(46) + r(6);
-r(47) = x(47) + r(7);
+x(47) = x(47) + r(7);
 x(48) = x(48) + r(8);
 
 phi = zeros(length(x)/2*3, length(x));
@@ -120,8 +87,8 @@ if test == "reference"
     end
     
 elseif test == "axial"
-    lambda_1 = 0.50; % axial deformation
-    lambda_2 = 1.00;
+    lambda_1 = 0.9; % axial deformation
+    lambda_2 = 0.9;
     for i = 1:length(x)/2*3
         if mod(i,3) == 1
             phi(i,i-floor(i/3)) = lambda_1;
@@ -445,12 +412,101 @@ end
 % initial tolerance for minimization
 tol = 10^(-5);
 
-[yOpt, xOpt, Ropt] = minimizationAlgorithmNew(x, y, Fj, Tj, J, R, L, L_0, tol);
+[yOpt, xOpt, Ropt] = minimizationAlgorithm(x, y, Fj, Tj, J, R, L, L_0, tol);
+%{
+titles = {'Initial X', 'Initial Y', 'Final X', 'Final Y'};
+vectors = {x, y, xOpt, yOpt};
+visualizeLatticeVec = true;
+plot4vectors3D(vectors, titles, visualizeLatticeVec, crease_test);
+%}
+% post-processing
+% random perturbation post-processing step
+E = 1; % initialize energy
+postprocessing_count = 0;
+while E > 5*10^(-5)
+r = normrnd(0, 0.001, [length(x), 1]);
+r_y = normrnd(0, 0.001, [length(y), 1]);
+
+% only perturb eligible DoFs
+r(1:2) = 0; % fixed first node
+r(41:50) = 0; % top nodes
+r(9:12) = 0; % side nodes
+r(29:32) = 0; % side nodes
+r_y(1:3) = 0; % fixed first node
+r_y(end-14:end) = 0; % top nodes
+r_y(13:18) = 0; % side nodes
+r_y(43:48) = 0; % side nodes
+
+x_perturbed = xOpt + r;
+y_perturbed = yOpt + r_y;
+
+% maintain original lattice vectors post-perturbation
+x_perturbed(11) = xOpt(11) + r(19); % shift right side nodes
+x_perturbed(12) = xOpt(12) + r(20);
+x_perturbed(29) = xOpt(29) + r(21);
+x_perturbed(30) = xOpt(30) + r(22);
+x_perturbed(31) = xOpt(31) + r(39);
+x_perturbed(32) = xOpt(32) + r(40);
+x_perturbed(43) = xOpt(43) + r(3); % shift top side nodes
+x_perturbed(44) = xOpt(44) + r(4);
+x_perturbed(45) = xOpt(45) + r(5);
+x_perturbed(46) = xOpt(46) + r(6);
+x_perturbed(47) = xOpt(47) + r(7);
+x_perturbed(48) = xOpt(48) + r(8);
+
+y_perturbed(16) = yOpt(16) + r_y(28); % shift right side nodes
+y_perturbed(17) = yOpt(17) + r_y(29);
+y_perturbed(18) = yOpt(18) + r_y(30);
+y_perturbed(43) = yOpt(43) + r_y(31);
+y_perturbed(44) = yOpt(44) + r_y(32);
+y_perturbed(45) = yOpt(45) + r_y(33);
+y_perturbed(46) = yOpt(46) + r_y(58);
+y_perturbed(47) = yOpt(47) + r_y(59);
+y_perturbed(48) = yOpt(48) + r_y(60);
+y_perturbed(64) = yOpt(64) + r_y(4); % shift top side nodes
+y_perturbed(65) = yOpt(65) + r_y(5);
+y_perturbed(66) = yOpt(66) + r_y(6);
+y_perturbed(67) = yOpt(67) + r_y(7);
+y_perturbed(68) = yOpt(68) + r_y(8);
+y_perturbed(69) = yOpt(69) + r_y(9);
+y_perturbed(70) = yOpt(70) + r_y(10);
+y_perturbed(71) = yOpt(71) + r_y(11);
+y_perturbed(72) = yOpt(72) + r_y(12);
+
+disp("Starting perturbation minimization...")
+[yOpt, xOpt, Ropt] = minimizationAlgorithm(x_perturbed, y_perturbed, Fj, Tj, J, Ropt, L, L_0, tol);
+
+% Compute energy associated with solution
+E = 0;
+
+% Construct necessary cj and rij vectors
+cj = cell(length(J));
+rij = cell(length(J));
+for j = 1:length(J)
+    % center of the panel calculation based on initial y vector
+    [cj{j}, ~] = centerOfPanel3D(Fj{j}, yOpt);
+
+    % pos vectors with respect to the center of the panel
+    [~, rij{j}] = centerOfPanel2D(Tj{j}, xOpt);
+end
+
+for j = 1:length(J)
+    for i = 1:length(Fj{j})
+        k = Fj{j}(i);
+
+        rij_temp = rij{j}(2*i-1:2*i);
+        rij1 = rij_temp(1);
+        rij2 = rij_temp(2);
+        
+        E = E + norm(yOpt(3*k-2:3*k, 1) - cj{j} - Ropt{j}*[rij1; rij2; 0])^2;
+    end
+end 
+postprocessing_count = postprocessing_count + 1;
+end
 
 titles = {'Initial X', 'Initial Y', 'Final X', 'Final Y'};
 vectors = {x, y, xOpt, yOpt};
 visualizeLatticeVec = true;
-
 plot4vectors3D(vectors, titles, visualizeLatticeVec, crease_test);
 
 % check for concavity
@@ -459,3 +515,4 @@ if (xOpt(24)-xOpt(22))/(xOpt(23)-xOpt(21)) * (xOpt(37)-xOpt(21)) + xOpt(22) < xO
 else
     disp("Concave...")
 end
+disp("Number of post-processing steps required: "+postprocessing_count)
