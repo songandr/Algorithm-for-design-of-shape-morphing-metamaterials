@@ -1,4 +1,4 @@
-function [yOpt, xOpt, Ropt] = minimizationAlgorithm(x, y, Fj, Tj, J, R, L, L_0, tol)
+function [yOpt, xOpt, Ropt, ax, finalIterOffset] = minimizationAlgorithm(x, y, Fj, Tj, J, R, L, L_0, tol, ax, iterOffset)
 % 
 % Based on the paper: "Elastic Energy Approximation and Minimization
 % Algorithm for Foldable Meshes" 
@@ -7,7 +7,7 @@ function [yOpt, xOpt, Ropt] = minimizationAlgorithm(x, y, Fj, Tj, J, R, L, L_0, 
 % Under the Supervision of Dr. Paul Plucinsky
 % Viterbi School of Engineering, Unversity of Southern California 
 %
-% Updated Date: 03/18/26.
+% Updated Date: 04/20/26.
 %
 % Rigidity Constraints:
 % L: matrix of the rigidity constraints that satisfies the equation: L*y = d  
@@ -30,13 +30,28 @@ function [yOpt, xOpt, Ropt] = minimizationAlgorithm(x, y, Fj, Tj, J, R, L, L_0, 
 % xMin: x coordinate 2-D array that minimizes the elastic energy based on
 % given rigidity constraints  
 % Ropt: array of rotation matrices for minimizes the elastic energy  
-%
-% Comment out 91-96, 135-141, 224-231 to reduce display clutter
-% Comment out 144-158, 235-246 to remove energy plots
+
+% --- Handle optional inputs ---
+initialPlot = 0;
+if nargin < 10 || isempty(ax)
+    figure
+    ax = gca;
+    set(ax,'YScale','log')
+    ax.FontSize = 16;
+    hold(ax,'on')
+end
+
+if nargin < 11 || isempty(iterOffset)
+    initialPlot = 1;
+    iterOffset = 0;
+end
+
+% --- Main logic ---
+count = iterOffset;
 
 % Implement as input eventually
-plotCheck = 0;
-textOutput = 1;
+plotCheck = 1;
+textOutput = 0;
 
 % initialize cj, rij vectors
 n = length(y); % number of vertices * 3
@@ -75,12 +90,8 @@ for j = 1:lenJ
     end
 end
 
-% initial invertibility check
-%inverseChecks = [];
-%inverseChecks(end+1) = inverseCheck(y, Fj, R, A, A_0, L, L_0, yMap, xMap);
-
 % initialize energy E{1}
-count = 1;
+count = count + 1;
 E{count} = 0;
 for j = 1:lenJ
     for i = 1:length(Fj{j})
@@ -135,9 +146,6 @@ R = RiOpt;
 y = yNew;
 x = xNew;
 
-% invertibility check after first minimization
-%inverseChecks(end+1) = inverseCheck(y, Fj, R, A, A_0, L, L_0);
-
 err = abs(E{count}-E{count-1});
 
 if textOutput
@@ -150,30 +158,28 @@ end
 
 % plot energy over iterations
 if plotCheck
-figure
-xlabel("Iteration Number [#]")
-ylabel("Energy [L^2]");
-%title("Energy Minimization");
-set(gca,'YScale','log')
-hold on
-for i = 1:length(E)
-    plot(i-1, E{i}, 'o', 'MarkerFaceColor', [0.10, 0.60, 0.9], 'MarkerEdgeColor', [0.10, 0.60, 0.9]);
-    ylim([tol, 10^ceil(log10(max(E{i})))]);
-    yticks([1e-5 1e-4 1e-3 1e-2 1e-1 1])
-    drawnow; % ensures that the updated point is plotted
-    pause(0.5);
+for i = 1:2
+    if initialPlot
+        plot(ax, count-3+i, E{count-2+i}, 'o', 'MarkerFaceColor', [0.10, 0.60, 0.9], 'MarkerEdgeColor', [0.10, 0.60, 0.9], 'MarkerSize', 12);
+        ylim(ax, [tol, 2*10^floor(log10(E{1}))]);
+        yticks(ax, [1e-5 1e-4 1e-3 1e-2 1e-1 1])
+    else
+        if i == 2
+            plot(ax, count-3+i, E{count-2+i}, 'o', 'MarkerFaceColor',[0.20, 0.70, 0.20], 'MarkerEdgeColor', [0.20, 0.70, 0.20], 'MarkerSize', 12);
+        end
+    end
 end
 end
 % initialize while loop parameters
 optX = 0; % X needs (not) to be optimized this iteration
-optX_count = 1; % counter for # of times x was optimized; see line 66
-check = 0; % checker for if x was optimized consecutively
+optX_count = 1; % counter for total # of times x was optimized
+check_x = 0; % checker for if x was optimized consecutively
 max_x_attempts = 2; % number of times x must be consecutively optimized before breaking loop
-optY = 0; % number of times R <-> y has been optimized for the given x
+optY_count = 0; % number of times R <-> y has been optimized for the given x
 max_y_attempts = 10; % number of times R <-> y can be optimized before forcing an x optimization
 force_x = 0; % checker for if x optimization should be forced
-finalLoop = 0; % checker for if x is converged and R <-> y must be optimized for final
-converged = 0; % checker for if R, y, and x have been optimized (R <-> y is complete once finalLoop = 1)
+finalLoop = 0; % checker for if x is converged and R <-> y must be optimized for final iteration
+converged = 0; % checker for if R, y, & x have been optimized (R <-> y is complete once finalLoop = 1)
 
 % optimization loop
 while err > tol || converged == 0 % optimize until convergence in R, y, and x
@@ -185,22 +191,24 @@ while err > tol || converged == 0 % optimize until convergence in R, y, and x
         xNew = minX(x, y, Fj, J, R, L_0, A_0, xMap);
         yNew = y;
         optX_count = optX_count+1;
-        optY = 0; % reset for a new optimized x
-        check = check + 1; % resets to 0 when x doesn't need opt, set to 1 after opt once, set to 2 after consecutive opt
+        optY_count = 0; % reset for a new optimized x
+        check_x = check_x + 1; % resets to 0 when x doesn't need opt, set to 1 after opt once, set to 2 after consecutive opt
     else % optimize R and y when not converged
-        optY = optY + 1;
+        optY_count = optY_count + 1;
         R = minR(x, y, Fj, Tj, J);
         yNew = minY(x, y, Tj, J, R, L, A, yMap); 
         xNew = x;
-        check = 0;
+        check_x = 0;
     end
 
-    if check == max_x_attempts % if X was optimized consecutively max_x_attempts # of times:
+    if check_x == max_x_attempts % if X was optimized consecutively max_x_attempts # of times:
+        if textOutput
         disp("Not converging...")
+        end
         break
     end
     
-    if optY >= max_y_attempts
+    if optY_count >= max_y_attempts
         force_x = 1; % force x optimization after max_y_attempts of R <-> y optimization
         if textOutput
         disp("Forcing x optimization...")
@@ -231,11 +239,11 @@ while err > tol || converged == 0 % optimize until convergence in R, y, and x
 
     err = abs(E{count}-E{count-1});
 
-    % Updating the values to be used at the beginning of the next loop
+    % updating values to be used at the beginning of the next loop
     y = yNew;
     x = xNew;
 
-    % showing the results of the algorithm in real time
+    % disp results in real time
     if textOutput
     disp("Iteration number: " + num2str(count));
     disp("Previous Energy Value: " + num2str(E{count-1}));
@@ -246,17 +254,13 @@ while err > tol || converged == 0 % optimize until convergence in R, y, and x
 
     % plotting the results of the algorithm in real time
     if plotCheck
-    hold on
     if optX ~= 1
-        plot(count-1, E{count}, 'o', 'MarkerFaceColor', [0.10, 0.60, 0.9], 'MarkerEdgeColor', [0.10, 0.60, 0.9]);
+        plot(ax, count-1, E{count}, 'o', 'MarkerFaceColor', [0.10, 0.60, 0.9], 'MarkerEdgeColor', [0.10, 0.60, 0.9], 'MarkerSize', 12);
     else
-        plot(count-1, E{count}, 'o', 'MarkerFaceColor', 'red', 'MarkerEdgeColor', 'red');
+        plot(ax, count-1, E{count}, 'o', 'MarkerFaceColor', 'red', 'MarkerEdgeColor', 'red', 'MarkerSize', 12);
     end
-    plot(count-1, E{count});
-    drawnow; % ensures that the updated point is plotted
-    pause(0.1);
-    hold off
     end
+
     % setting boolean parameters for x optimization check
     if (optX == 0 && err < tol) || force_x % x should be optimized next iteration (R <-> y loop converged OR max_y_attempts reached):
         optX = 1;
@@ -271,12 +275,24 @@ while err > tol || converged == 0 % optimize until convergence in R, y, and x
     else % continue optimizing R <-> y
         optX = 0;
     end
+
+    if plotCheck
+    if mod(count,10) == 0
+        xl = xlim(ax);
+        startTick = floor(xl(1)/10)*10;
+        endTick   = ceil(xl(2)/10)*10;
+        ax.XTick = startTick:10:endTick;
+    end
+    end
 end
 
 Ropt = R;
 yOpt = y;
 xOpt = x;
 
+if textOutput
 disp("x optimization count: " + optX_count);
+end
 
+finalIterOffset = count;
 end
