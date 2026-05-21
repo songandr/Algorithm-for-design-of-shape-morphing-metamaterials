@@ -49,7 +49,11 @@ aTilde = N_T'*a_0 - N_T'*A_0*x_c ;
 % determining the perturbation method
 aTilde(abs(aTilde)<1e-5)=0;
 
-z_0 = (N_T'*A_0*N_T)\aTilde;
+% condition matrix for inverting
+preinverse_tensor = N_T'*A_0*N_T;
+preinverse_tensor = (preinverse_tensor+preinverse_tensor')/2; % symmetricize tensor before inverting
+preinverse_tensor(abs(preinverse_tensor)<1e-10) = 0; % round tensor before inverting
+z_0 = preinverse_tensor\aTilde;
 
 xMin = x_c + N_T*z_0;
 

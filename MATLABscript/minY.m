@@ -52,7 +52,12 @@ bTilde = N_G'*a - N_G'*A*y_d;
 % determining the perturbation method
 bTilde(abs(bTilde)<1e-5)=0;
 
-z = (N_G'*A*N_G)\bTilde;
+% condition matrix for inverting
+preinverse_tensor = N_G'*A*N_G;
+preinverse_tensor = (preinverse_tensor+preinverse_tensor')/2; % symmetricize tensor before inverting
+preinverse_tensor(abs(preinverse_tensor)<1e-10) = 0; % round tensor before inverting
+z = preinverse_tensor\bTilde;
+disp("rcond: "+rcond(N_G'*A*N_G))
 
 yMin = y_d + N_G*z;
 
