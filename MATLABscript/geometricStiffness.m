@@ -1,4 +1,4 @@
-function K = geometricStiffness(xstar, ystar, Rstar, Tj, Fj, J, L, dim, group)
+function K = geometricStiffness(xstar, ystar, Rstar, Tj, Fj, J, L, B1, B2, dim, group)
 % 
 % Based on the paper: "Algorithmic design framework for shape-morphing metamaterials" 
 %
@@ -16,6 +16,8 @@ function K = geometricStiffness(xstar, ystar, Rstar, Tj, Fj, J, L, dim, group)
 % Fj: a column cell array of the set of all y's within each panel
 % J: the set of all panel labels
 % L: matrix of the rigidity constraints (L; chi_1) see Eq. (38)
+% B1: the number of lateral constraints defining d1
+% B2: the number of vertical constraints defining d2
 % dim: 2 for planar rotations or 3 otherwise
 % group: "translation" or "helical" for group symmetry category
 %
@@ -25,6 +27,7 @@ function K = geometricStiffness(xstar, ystar, Rstar, Tj, Fj, J, L, dim, group)
 %   >0: bistable
 
 % initialize vectors
+e3 = [0; 0; 1]; % out of plane vector
 n = length(ystar); % number of vertices * 3
 lenJ = length(J); % number of panels
 xijstar = cell(lenJ, 1); % stores information of x_istar-avg(xstar)_j
@@ -58,7 +61,6 @@ end
 
 % compute mu_ij 2D or 3D
 if dim == 2
-    e3 = [0; 0; 1]; % out of plane vector
 
     for j = 1:lenJ
         % compute dummy sums for dr_jstar
@@ -92,10 +94,8 @@ else % 3D case
             right = right + yijstarcross'*chi_ij{k,j};
         end
         dr_jstar{j} = left\right;
-    end
 
-    % compute mu_ij
-    for j = 1:lenJ
+        % compute mu_ij
         for i = 1:length(Fj{j})
             k = Fj{j}(i); % vertex k
             yijstarcross = [0                   -yijstar{k,j}(3)    yijstar{k,j}(2);
@@ -136,22 +136,25 @@ end
 M_G = (eye(n) - N_G*(GH_matrix\N_G')*dA) * L'; % omit inv(L*L') to use \ operator later
 if group == "translation"
     % translation group case
-    d1 = L*ystar; d1 = d1(1:3); % first row should be d1
+    num_constraints = B1+B2;
+    
+    d1 = L*ystar; d1 = d1(1:3); % first B1 rows should be d1
     d2 = L*ystar; d2 = d2(end-5:end-3); % second to last row should be d2
     % last row is always 0 since chi_1 * y = 0 is set
-    num_constraints = size(L,1)/3 - 1; % |B_1| + |B_2|; -1 for last row
     
     % minimize group parameters
     T = [d1/norm(d1)   zeros(3,1)  cross(e3,d1)/(sqrt(2)*norm(cross(e3,d1)));
           zeros(3,1)    d2/norm(d2) -cross(e3,d2)/(sqrt(2)*norm(cross(e3,d2)));
           zeros(6,3)]; % see Eq. (55)
-    
-    G = zeros(3*(num_constraints+1),12); % see Eq. (54); derived from setting g_k = delta d_k
-    for k = 1:num_constraints/2 
-        G(3*k-2:3*k, 1:3) = eye(3); % assuming 1st half of L holds k=1, 
-        G(3*num_constraints/2+3*k-2:3*num_constraints/2+3*k, 4:6) = eye(3); % the 2nd half holds k=2 (before last row)
-    end
 
+    G = zeros(3*(num_constraints+1),12); % see Eq. (54); derived from setting g_k = delta d_k
+    for k = 1:num_constraints
+        if k <= B1
+            G(3*k-2:3*k, 1:3) = eye(3); % first 3*B1 rows hold k=1 info, 
+        else
+            G(3*k-2:3*k, 4:6) = eye(3); % the next 3*B2 rows hold k=2 info  
+        end                
+    end
     B = T'*G'*((L*L')\M_G')*dA*M_G*((L*L')\G)*T; % combining Eq. (53-55) for the final matrix to SVD
     symB = (B+B')/2; % symmetricize
 
@@ -165,7 +168,7 @@ if group == "translation"
     % solve for Kstar
     K = dot(lambda,B*lambda);
     K(K<tol) = 0;
-    if(K==0)
+    if K==0
         disp("Mechanism found!")
         disp("Mode:")
         % rigid translation modes
@@ -190,7 +193,11 @@ if group == "translation"
             disp(mode(3*i-2:3*i))
         end
     else
-        disp("Bistability demonstrated.")
+        if K < 10^(-3)
+            disp("Close to mechanism.")
+        else
+            disp("Bistability demonstrated.")
+        end
         disp("K="+K)
     end
 end

@@ -7,7 +7,7 @@
 % Under the Supervision of Dr. Paul Plucinsky
 % Viterbi School of Engineering, Unversity of Southern California 
 %
-% Updated Date: 06/10/26.
+% Updated Date: 06/12/26.
 close all;
 clear all; 
 clc;
@@ -15,7 +15,7 @@ clc;
 % Reference and deformed configuration lattice vector parameters
 test = "axial";
 star = 0; % for star-shaped slits
-trapezoid = 0; % for trapezoid-shaped slits
+trapezoid = 1; % for trapezoid-shaped slits
 check_strain = 0;
 
 % Initial x-values
@@ -117,8 +117,8 @@ if test == "reference"
     y9 = y3;
     y = [y1; y2; y3; y4; y5; y6; y7; y8; y9; y10; y11; y12];
 elseif test == "axial"
-    lambda_1 = 1.2; % axial deformation
-    lambda_2 = 1.2;
+    lambda_1 = 0.7; % axial deformation
+    lambda_2 = 1;
     if trapezoid % spectral decomposition along diagonals
         for i = 1:length(x)/2*3
             if mod(i,3) == 1
@@ -272,6 +272,4 @@ if check_strain
 end
 
 % compute geometric stiffness
-K = geometricStiffness(xOpt, yOpt, Ropt, Tj, Fj, J, L, 2, "translation");
-disp("K="+K)
-
+K = geometricStiffness(xOpt, yOpt, Ropt, Tj, Fj, J, L, 2, 2, 2, "translation");
