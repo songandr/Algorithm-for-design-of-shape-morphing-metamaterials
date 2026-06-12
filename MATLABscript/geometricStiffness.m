@@ -6,7 +6,7 @@ function K = geometricStiffness(xstar, ystar, Rstar, Tj, Fj, J, L, dim, group)
 % Under the Supervision of Dr. Paul Plucinsky
 % Viterbi School of Engineering, Unversity of Southern California 
 %
-% Updated Date: 06/10/26.
+% Updated Date: 06/11/26.
 %
 % Inputs:
 % xstar: minimized x coordinate 2-D array (2*n by 1 where n is the number of indices)
@@ -60,8 +60,8 @@ end
 if dim == 2
     e3 = [0; 0; 1]; % out of plane vector
 
-    % compute dummy sums for dr_jstar
     for j = 1:lenJ
+        % compute dummy sums for dr_jstar
         num = zeros(n,1); % numerator for dr_jstar; see Eq. (42, 44)
         den = 0; % denominator for dr_jstar; Eq. (42, 44)
         for i = 1:length(Fj{j}) 
@@ -70,16 +70,15 @@ if dim == 2
             den = den + norm(cross(e3, yijstar{k,j}))^2;
         end
         dr_jstar{j} = num/den;
-    end
-    
-    % compute mu_ij
-    for j = 1:lenJ
+
+        % compute mu_ij
         for i = 1:length(Fj{j})
             k = Fj{j}(i); % vertex k
             mu_ij{k,j} = chi_ij{k,j} - cross(e3, yijstar{k,j})*dr_jstar{j}';
         end
+
     end
-else
+else % 3D case
     % compute dummy sums for dr_jstar
     for j = 1:lenJ
         left = zeros(3); % tensor meant to be inverted for dr_jstar; see Eq. (45, 47)
@@ -113,23 +112,28 @@ for j = 1:lenJ
         dA = dA + mu_ij{k,j}'*mu_ij{k,j};
     end
 end
+
+% clean dA
 tol = 10^(-14);
 dA(abs(dA)<tol) = 0; % round off numerics
 dA = (dA+dA')/2; % symmetricize
 
-% check for G-H mode special case
 N_G = null(L); % null space of (L; chi_1) sized 3I by NG
+
+% clean N_G'*dA*N_G
 GH_matrix = N_G'*dA*N_G;
 GH_matrix(abs(GH_matrix)<tol) = 0; % round off numerics
 GH_matrix = (GH_matrix+GH_matrix')/2; % symmetricize
+
+% check for G-H mode special case
 GH_det = det(GH_matrix);
-if GH_det < tol
+if GH_det < tol % GH_matrix is SPD
     K = 0;
     disp("Guest-Hutchinson mode found.")
     return;
 end
 
-M_G = (eye(n) - N_G*(GH_matrix\N_G')) * L'; % omit inv(L*L') to use \ operator later
+M_G = (eye(n) - N_G*(GH_matrix\N_G')*dA) * L'; % omit inv(L*L') to use \ operator later
 if group == "translation"
     % translation group case
     d1 = L*ystar; d1 = d1(1:3); % first row should be d1
@@ -150,17 +154,45 @@ if group == "translation"
 
     B = T'*G'*((L*L')\M_G')*dA*M_G*((L*L')\G)*T; % combining Eq. (53-55) for the final matrix to SVD
     symB = (B+B')/2; % symmetricize
-    disp(symB)
 
     % find the minimum eigenvalue and corresponding eigenvector
     [V, D] = eig(symB); % eigenvectors V and eigenvalues D
+
     [~,idx] = min(diag(D));
     lambda = V(:,idx);
     lambda = lambda/norm(lambda); % normalize as unit vector
-    %disp("(G,0)=")
-    %disp(G*T*lambda) % (G,0) = G*T*lambda but also = L*deltay
+
     % solve for Kstar
     K = dot(lambda,B*lambda);
+    K(K<tol) = 0;
+    if(K==0)
+        disp("Mechanism found!")
+        disp("Mode:")
+        % rigid translation modes
+        tx = repmat([1;0;0], n/3, 1);
+        ty = repmat([0;1;0], n/3, 1);
+        tz = repmat([0;0;1], n/3, 1);
+    
+        % rigid rotation mode
+        r = zeros(n,1);
+        for i=1:n/3
+            xi = ystar(3*i-2);
+            yi = ystar(3*i-1);
+            r(3*i-2:3*i) = [-yi; xi; 0];
+        end
+
+        R = [tx ty tz r]; % rigid body modes (n by 4)
+        N_dA = null(dA);
+        alpha = null(R'*N_dA);
+        mode = N_dA*alpha; mode = mode/norm(mode); % project out non-rigid mechanism
+        for i=1:n/3
+            disp("delta y"+i+"=")
+            disp(mode(3*i-2:3*i))
+        end
+    else
+        disp("Bistability demonstrated.")
+        disp("K="+K)
+    end
 end
     
 
