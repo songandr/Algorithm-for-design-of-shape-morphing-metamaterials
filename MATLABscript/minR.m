@@ -1,4 +1,4 @@
-function Ropt = minR(x, y, Fj, Tj, J)
+function Ropt = minR(x, y, Pj, J)
 % 
 % uses quaternions to convert the minimization into an eigenvalue problem, 
 % the iterative rotation minimization determines the rotation matrix for each panel
@@ -6,15 +6,11 @@ function Ropt = minR(x, y, Fj, Tj, J)
 % given X and Y values
 %
 % inputs:
-% Tj: a cell array of the set of all x's within each panel 
 % x: x coordinate 2-D array (2*n by 1 where n is the number of indices)
-% Fj: a cell array of the set of all y's within each panel 
 % y: y coordinate 2-D array (3*n by 1 where n is the number of indices)
-%
-% Ti: a cell array containing the set of all panels associated with index i
+% Pj: a column cell array of the set of all y's within each panel (the jth panel
+% corresponds to the jth cell)
 % J: the set of all panels
-% tol: sufficient tolerance for convergence
-% R: a cell array of the rotation matrix for each panel 
 %
 % outputs:
 % Ropt: a cell array of the rotation matrices that minimize the elastic energy 
@@ -25,10 +21,10 @@ cj = cell(length(J));
 rij = cell(length(J));
 for j = 1:length(J)
     % center of the panel calculation based on initial y vector
-    [cj{j}, ~] = centerOfPanel3D(Fj{j}, y);
+    [cj{j}, ~] = centerOfPanel3D(Pj{j}, y);
 
     % pos vectors with respect to the center of the panel
-    [~, rij{j}] = centerOfPanel2D(Tj{j}, x);
+    [~, rij{j}] = centerOfPanel2D(Pj{j}, x);
 end 
 
 % initialize rotation matrix
@@ -37,9 +33,9 @@ Ml = zeros(4, 4, length(J)); % Ml = sum of sym(M_kl) over k in panel j
 % construct the matrix to optimize over
 for j = 1:length(J)
 
-    for i = 1:length(Fj{j})
+    for i = 1:length(Pj{j})
 
-       k = Fj{j}(i);
+       k = Pj{j}(i);
        ckl = y(3*k-2:3*k, 1) - cj{j}; 
        ckl_cross = [0           -ckl(3)    ckl(2);
                     ckl(3)      0          -ckl(1);
@@ -73,13 +69,13 @@ for j = 1:length(J)
 
     % rounding small numeric values to zero
     roundedMl = Ml(:,:,j);
-    roundedMl(abs(roundedMl)<1e-4) = 0;
+    roundedMl(abs(roundedMl)<1e-10) = 0;
 
     [V, D] = eig(roundedMl); % eigenvectors V and eigenvalues D
     
     % rounding small numeric values to zero
     roundedD = D;
-    roundedD(abs(roundedD)<1e-3)=0;
+    roundedD(abs(roundedD)<1e-10)=0;
 
     % find the maximum eigenvalue and corresponding eigenvector @ col
     maxEig = max(roundedD, [], "all");

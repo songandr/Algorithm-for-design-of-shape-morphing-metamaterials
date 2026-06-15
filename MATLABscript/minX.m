@@ -1,4 +1,4 @@
-function xMin = minX(x_c, y, Fj, J, R, L_0, A_0, xMap)
+function xMin = minX(x_c, y, Pj, J, R, L_0, A_0, xMap)
 %
 % directly solves the linear equation to calculate the perturbation of the
 % initial x
@@ -11,7 +11,7 @@ function xMin = minX(x_c, y, Fj, J, R, L_0, A_0, xMap)
 % Indexing Inputs:
 % x_c: x coordinate 2-D array (2*n by 1 where n is the number of vertices)
 % y: y coordinate 2-D array (3*n by 1 where n is the number of vertices)
-% Fj: a cell array of the set of all y's within each panel (the jth panel
+% Pj: a cell array of the set of all y's within each panel (the jth panel
 % corresponds to the jth row)
 % J: the labeling set of all panels
 % R: a cell array of all of the rotation matrices for each panel
@@ -32,13 +32,13 @@ N_T = null(L_0);
 % pos vectors with respect to the center of the panel for all panels
 rij = cell(lenJ); % j cells with the j-th cell containing 
 for j = 1:lenJ
-    [~, rij{j}] = centerOfPanel3D(Fj{j}, y);
+    [~, rij{j}] = centerOfPanel3D(Pj{j}, y);
 end
 
 a_0 = zeros(n, 1);
 for j = 1:lenJ
-    for i = 1:length(Fj{j})
-       k = Fj{j}(i); % vertex k
+    for i = 1:length(Pj{j})
+       k = Pj{j}(i); % vertex k
        a_0 = a_0 + xMap{k,j}'*R{j}'*rij{j}(3*i-2:3*i);
     end
 end

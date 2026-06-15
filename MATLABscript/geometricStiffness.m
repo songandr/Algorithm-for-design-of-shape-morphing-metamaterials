@@ -1,4 +1,4 @@
-function K = geometricStiffness(xstar, ystar, Rstar, Tj, Fj, J, L, B1, B2, dim, group)
+function K = geometricStiffness(xstar, ystar, Rstar, Pj, J, L, B1, B2, dim, group)
 % 
 % Based on the paper: "Algorithmic design framework for shape-morphing metamaterials" 
 %
@@ -6,14 +6,13 @@ function K = geometricStiffness(xstar, ystar, Rstar, Tj, Fj, J, L, B1, B2, dim, 
 % Under the Supervision of Dr. Paul Plucinsky
 % Viterbi School of Engineering, Unversity of Southern California 
 %
-% Updated Date: 06/11/26.
+% Updated Date: 06/15/26.
 %
 % Inputs:
 % xstar: minimized x coordinate 2-D array (2*n by 1 where n is the number of indices)
 % ystar: minimized y coordinate 2-D array (2*n by 1 where n is the number of indices)
 % Rstar: minimized rotation matrix for each panel cell array length(J) of 3x3's
-% Tj: a column cell array of the set of all x's within each panel 
-% Fj: a column cell array of the set of all y's within each panel
+% Pj: a column cell array of the set of all nodes within each panel 
 % J: the set of all panel labels
 % L: matrix of the rigidity constraints (L; chi_1) see Eq. (38)
 % B1: the number of lateral constraints defining d1
@@ -45,12 +44,12 @@ dA = zeros(n, n);
 % construct yijstar and chi_ij
 for j = 1:lenJ
     % pos vectors with respect to the center of the panel
-    [~, xijstar{j}] = centerOfPanel2D(Tj{j}, xstar);
+    [~, xijstar{j}] = centerOfPanel2D(Pj{j}, xstar);
 
-    num_Pj = length(Fj{j}); % number of vertices in the j-th panel
-    chi_avg = (1/num_Pj)*calcMatrixSum_y(chi, Fj{j});
-    for i = 1:length(Fj{j})
-        k = Fj{j}(i); % vertex k
+    num_Pj = length(Pj{j}); % number of vertices in the j-th panel
+    chi_avg = (1/num_Pj)*calcMatrixSum_y(chi, Pj{j});
+    for i = 1:length(Pj{j})
+        k = Pj{j}(i); % vertex k
 
         temp = xijstar{j}(2*i-1:2*i);
         yijstar{k,j} = Rstar{j}*[temp(1); temp(2); 0];
@@ -66,16 +65,16 @@ if dim == 2
         % compute dummy sums for dr_jstar
         num = zeros(n,1); % numerator for dr_jstar; see Eq. (42, 44)
         den = 0; % denominator for dr_jstar; Eq. (42, 44)
-        for i = 1:length(Fj{j}) 
-            k = Fj{j}(i); % vertex k
+        for i = 1:length(Pj{j}) 
+            k = Pj{j}(i); % vertex k
             num = num + chi_ij{k,j}'*cross(e3, yijstar{k,j}); 
             den = den + norm(cross(e3, yijstar{k,j}))^2;
         end
         dr_jstar{j} = num/den;
 
         % compute mu_ij
-        for i = 1:length(Fj{j})
-            k = Fj{j}(i); % vertex k
+        for i = 1:length(Pj{j})
+            k = Pj{j}(i); % vertex k
             mu_ij{k,j} = chi_ij{k,j} - cross(e3, yijstar{k,j})*dr_jstar{j}';
         end
 
@@ -85,8 +84,8 @@ else % 3D case
     for j = 1:lenJ
         left = zeros(3); % tensor meant to be inverted for dr_jstar; see Eq. (45, 47)
         right = zeros(3, n); % right tensor in dr_jstar; see Eq. (45, 47)
-        for i = 1:length(Fj{j})
-            k = Fj{j}(i); % vertex k
+        for i = 1:length(Pj{j})
+            k = Pj{j}(i); % vertex k
             yijstarcross = [0                   -yijstar{k,j}(3)    yijstar{k,j}(2);
                             yijstar{k,j}(3)     0                   -yijstar{k,j}(1);
                             -yijstar{k,j}(2)    yijstar{k,j}(1)     0];
@@ -96,8 +95,8 @@ else % 3D case
         dr_jstar{j} = left\right;
 
         % compute mu_ij
-        for i = 1:length(Fj{j})
-            k = Fj{j}(i); % vertex k
+        for i = 1:length(Pj{j})
+            k = Pj{j}(i); % vertex k
             yijstarcross = [0                   -yijstar{k,j}(3)    yijstar{k,j}(2);
                             yijstar{k,j}(3)     0                   -yijstar{k,j}(1);
                             -yijstar{k,j}(2)    yijstar{k,j}(1)     0];
@@ -107,8 +106,8 @@ else % 3D case
 end
 
 for j = 1:lenJ
-    for i = 1:length(Fj{j})
-        k = Fj{j}(i); % vertex k
+    for i = 1:length(Pj{j})
+        k = Pj{j}(i); % vertex k
         dA = dA + mu_ij{k,j}'*mu_ij{k,j};
     end
 end

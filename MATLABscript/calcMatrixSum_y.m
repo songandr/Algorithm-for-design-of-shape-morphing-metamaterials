@@ -1,9 +1,9 @@
-function matrixSum = calcMatrixSum_y(chi, Fj)
+function matrixSum = calcMatrixSum_y(chi, Pj)
 % 
 % calculates the summation of matrices chi that selects the y_i vector
 %
 % inputs:
-% Fj: an array of the set of all y within the given panel 
+% Pj: an array of the set of all y within the given panel 
 % xM: cell array of matrices
 %
 % outputs:
@@ -13,8 +13,8 @@ function matrixSum = calcMatrixSum_y(chi, Fj)
 n = length(chi);
 sum = zeros(3, 3*n);
 
-for k = 1:length(Fj)
-   p = Fj(k);
+for k = 1:length(Pj)
+   p = Pj(k);
    sum = sum + chi{p};
 end
 

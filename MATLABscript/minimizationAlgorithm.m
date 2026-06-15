@@ -1,25 +1,22 @@
-function [yOpt, xOpt, Ropt, ax, finalIterOffset] = minimizationAlgorithm(x, y, Fj, Tj, J, R, L, L_0, tol, ax, iterOffset)
+function [yOpt, xOpt, Ropt, ax, finalIterOffset] = minimizationAlgorithm(x, y, Pj, J, R, L, L_0, tol, ax, iterOffset)
 % 
-% Based on the paper: "Elastic Energy Approximation and Minimization
-% Algorithm for Foldable Meshes" 
+% Based on the paper: "Algorithmic design framework for shape-morphing metamaterials" 
 %
-% By: Antoine Moats, Niharika Sashidhar, Andrew Song
+% By: Antoine Moats, Yingchao Peng, Andrew Song
 % Under the Supervision of Dr. Paul Plucinsky
 % Viterbi School of Engineering, Unversity of Southern California 
 %
-% Updated Date: 04/20/26.
+% Updated Date: 04/27/26.
 %
 % Rigidity Constraints:
 % L: matrix of the rigidity constraints that satisfies the equation: L*y = d  
 % L_0: matrix of the rigidity constraints that satisfies the equation: L_0*x = c  
 %
 % Indexing Inputs:
-% Tj: a column cell array of the set of all x's within each panel 
-% Tj size is 1 by numPanels with cell size vertices in panel by 1;
 % x: x coordinate 2-D array (2*n by 1 where n is the number of indices)
-% Fj: a column cell array of the set of all y's within each panel (the jth panel
-% corresponds to the jth cell)
 % y: y coordinate 2-D array (3*n by 1 where n is the number of indices)
+% Pj: a column cell array of the set of all y's within each panel (the jth panel
+% corresponds to the jth cell)
 % J: the set of all panels
 % R: a cell array of all of the initial rotation matrix for each panel
 % tol: tolerance for the algorithm minimization
@@ -31,14 +28,20 @@ function [yOpt, xOpt, Ropt, ax, finalIterOffset] = minimizationAlgorithm(x, y, F
 % given rigidity constraints  
 % Ropt: array of rotation matrices for minimizes the elastic energy  
 
+% Implement as input eventually
+plotCheck = 1;
+textOutput = 0;
+
 % --- Handle optional inputs ---
 initialPlot = 0;
+if plotCheck
 if nargin < 10 || isempty(ax)
     figure
     ax = gca;
     set(ax,'YScale','log')
     ax.FontSize = 16;
     hold(ax,'on')
+end
 end
 
 if nargin < 11 || isempty(iterOffset)
@@ -48,10 +51,6 @@ end
 
 % --- Main logic ---
 count = iterOffset;
-
-% Implement as input eventually
-plotCheck = 1;
-textOutput = 0;
 
 % initialize cj, rij vectors
 n = length(y); % number of vertices * 3
@@ -73,16 +72,16 @@ A_0 = zeros(2*n/3, 2*n/3); % pre-allocating the size of A_0 (2I by 2I)
 % construct cj, rij vectors and A, A_0 arrays
 for j = 1:lenJ
     % center of the panel calculation based on initial y vector
-    [cj{j}, ~] = centerOfPanel3D(Fj{j}, y);
+    [cj{j}, ~] = centerOfPanel3D(Pj{j}, y);
 
     % pos vectors with respect to the center of the panel
-    [~, rij{j}] = centerOfPanel2D(Tj{j}, x);
+    [~, rij{j}] = centerOfPanel2D(Pj{j}, x);
 
-    num_Pj = length(Fj{j}); % number of vertices in the j-th panel
-    chi_avg = (1/num_Pj)*calcMatrixSum_y(chi, Fj{j});
-    chi_0_avg = (1/num_Pj)*calcMatrixSum_x(chihat, Fj{j}); 
-    for i = 1:length(Fj{j})
-        k = Fj{j}(i); % vertex k
+    num_Pj = length(Pj{j}); % number of vertices in the j-th panel
+    chi_avg = (1/num_Pj)*calcMatrixSum_y(chi, Pj{j});
+    chi_0_avg = (1/num_Pj)*calcMatrixSum_x(chihat, Pj{j}); 
+    for i = 1:length(Pj{j})
+        k = Pj{j}(i); % vertex k
         yMap{k, j} = chi{k} - chi_avg;
         xMap{k, j} = chihat{k} - chi_0_avg;
         A = A + yMap{k,j}'*yMap{k,j};
@@ -94,8 +93,8 @@ end
 count = count + 1;
 E{count} = 0;
 for j = 1:lenJ
-    for i = 1:length(Fj{j})
-        k = Fj{j}(i);
+    for i = 1:length(Pj{j})
+        k = Pj{j}(i);
 
         rij_temp = rij{j}(2*i-1:2*i);
         rij1 = rij_temp(1);
@@ -116,23 +115,23 @@ count = count + 1;
 E{count} = 0; 
 
 % initial minimizations
-RiOpt = minR(x, y, Fj, Tj, J);
-yNew = minY(x, y, Tj, J, RiOpt, L, A, yMap);
-xNew = minX(x, yNew, Fj, J, RiOpt, L_0, A_0, xMap);
+RiOpt = minR(x, y, Pj, J);
+yNew = minY(x, y, Pj, J, RiOpt, L, A, yMap);
+xNew = minX(x, yNew, Pj, J, RiOpt, L_0, A_0, xMap);
 
 % compute cj, rij
 for j = 1:lenJ
     % center of the panel calculation based on new y vector
-    [cj{j}, ~] = centerOfPanel3D(Fj{j}, yNew);
+    [cj{j}, ~] = centerOfPanel3D(Pj{j}, yNew);
 
     % pos vectors with respect to the center of the panel
-    [~, rij{j}] = centerOfPanel2D(Tj{j}, xNew);
+    [~, rij{j}] = centerOfPanel2D(Pj{j}, xNew);
 end 
 
 % compute the first energy that is to be compared in the while loop (E{2})
 for j = 1:lenJ
-    for i = 1:length(Fj{j})
-        k = Fj{j}(i); 
+    for i = 1:length(Pj{j})
+        k = Pj{j}(i); 
 
         rij_temp = rij{j}(2*i-1:2*i);
         rij1 = rij_temp(1);
@@ -188,15 +187,15 @@ while err > tol || converged == 0 % optimize until convergence in R, y, and x
     
     % only optimize X if R <-> x optimization is converged for the given x
     if optX
-        xNew = minX(x, y, Fj, J, R, L_0, A_0, xMap);
+        xNew = minX(x, y, Pj, J, R, L_0, A_0, xMap);
         yNew = y;
         optX_count = optX_count+1;
         optY_count = 0; % reset for a new optimized x
         check_x = check_x + 1; % resets to 0 when x doesn't need opt, set to 1 after opt once, set to 2 after consecutive opt
     else % optimize R and y when not converged
         optY_count = optY_count + 1;
-        R = minR(x, y, Fj, Tj, J);
-        yNew = minY(x, y, Tj, J, R, L, A, yMap); 
+        R = minR(x, y, Pj, J);
+        yNew = minY(x, y, Pj, J, R, L, A, yMap); 
         xNew = x;
         check_x = 0;
     end
@@ -218,16 +217,16 @@ while err > tol || converged == 0 % optimize until convergence in R, y, and x
     % compute cj and rij vectors
     for j = 1:lenJ
         % center of the panel calculation based on new y vector
-        [cj{j}, ~] = centerOfPanel3D(Fj{j}, yNew);
+        [cj{j}, ~] = centerOfPanel3D(Pj{j}, yNew);
 
         % pos vectors with respect to the center of the panel
-        [~, rij{j}] = centerOfPanel2D(Tj{j}, xNew);
+        [~, rij{j}] = centerOfPanel2D(Pj{j}, xNew);
     end
 
     % compute energy for iteration
     for j = 1:lenJ
-        for i = 1:length(Fj{j})
-            k = Fj{j}(i); 
+        for i = 1:length(Pj{j})
+            k = Pj{j}(i); 
 
             rij_temp = rij{j}(2*i-1:2*i);
             rij1 = rij_temp(1);
@@ -266,7 +265,9 @@ while err > tol || converged == 0 % optimize until convergence in R, y, and x
         optX = 1;
         force_x = 0; % reset the checker
         if finalLoop % energy has converged for R, y, and x minimizations
+            if textOutput
             disp("Converged!")
+            end
             converged = 1;
         end
     elseif optX == 1 && err < tol % R <-> y should be optimized one last time (x converged):
