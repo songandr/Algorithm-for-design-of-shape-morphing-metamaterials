@@ -8,17 +8,22 @@
 % Under the Supervision of Dr. Paul Plucinsky
 % Viterbi School of Engineering, Unversity of Southern California 
 %
-% Updated Date: 03/20/26.
+% Updated Date: 06/15/26.
 %
 % The initial configuration consists of 16 panels in the Miura-Ori
 % configuration (4x4 unit cell). This test is interested in the folding of these 
 % panels and the resultant energy calculation.
+close all;
+clear all; 
+clc;
 
 % Test Parameters
-test = "axial";
-crease_test = "Miura4x4";
-%crease_test = "Miura4x4_diagonal1";
-panelRemoval = 0;
+test = "mix";
+crease_test = "Miura4x4"; % standard 4x4 grid crease pattern
+%crease_test = "Miura4x4_diagonal1"; % for alternative crease patterns
+panelRemoval = 1; % must be 1 or 2 for shear/mix tests
+check_strain = 0;
+slit_test = 0;
 
 % Initial x-values
 l1R = [1; 0];
@@ -49,8 +54,24 @@ x19 = (x18+x20)/2;
 x22 = (x21+x23)/2;
 x24 = (x23+x25)/2;
 
+% test
+%{
+delta = [0; 0.07];
+x2 = x3 - l1R/4 + delta;
+x4 = x5 - l1R/4 - delta;
+x10 = (3*x1 + 2*x11)/5;
+x9 = x10 + l1R/4 + delta;
+x12 = x11 + l1R/4 - delta;
+x14 = x13 + l1R/4 - delta;
+x8 = x10 + l1R/2;
+x7 = x8 + l1R/4 + delta;
+x6 = x10 + l1R;
+x22 = x2 + l2R;
+x23 = x3 + l2R;
+x24 = x4 + l2R;
+%}
 % Randomized ICs
-rng(3, "twister");
+rng(6, "twister");
 r = normrnd(0, 1/50, [50, 1]);
 % only perturb eligible DoFs
 r(1:2) = 0; % fixed first node
@@ -59,6 +80,7 @@ r(9:12) = 0; % side nodes
 r(29:32) = 0; % side nodes
 
 x = [x1; x2; x3; x4; x5; x6; x7; x8; x9; x10; x11; x12; x13; x14; x15; x16; x17; x18; x19; x20; x21; x22; x23; x24; x25];
+
 x = x+r;
 
 % maintain original lattice vectors post-perturbation
@@ -75,6 +97,24 @@ x(46) = x(46) + r(6);
 x(47) = x(47) + r(7);
 x(48) = x(48) + r(8);
 
+% slit test: initialize fixed slit shape
+if slit_test
+    % set nodes 8, 9, 12 using:
+    % random perturbations
+    random = 1;
+    
+    if ~random % known solution for gamma=0.2, lambda=0.75
+        x(15:16) = [0.650888890086792; 0.104143712602226];
+        x(17:18) = [0.279257640210828; 0.299430803195907];
+        x(23:24) = [0.100483120971925; 0.670613637764285];
+    end
+    
+    x(25:26) = x(15:16) + (x(23:24) - x(17:18)); % make parallelogram
+    if panelRemoval == 2
+        x(33:34) = x(27:28) + (x(35:36) - x(25:26)); % make 2nd parallelogram
+    end
+end
+
 phi = zeros(length(x)/2*3, length(x));
 if test == "reference"
     
@@ -87,8 +127,8 @@ if test == "reference"
     end
     
 elseif test == "axial"
-    lambda_1 = 0.9; % axial deformation
-    lambda_2 = 0.9;
+    lambda_1 = 0.8; % axial deformation
+    lambda_2 = 0.6;
     for i = 1:length(x)/2*3
         if mod(i,3) == 1
             phi(i,i-floor(i/3)) = lambda_1;
@@ -97,11 +137,30 @@ elseif test == "axial"
         end    
     end
 
+elseif test == "axial_conditioned_0.9"
+    % xOpt, yOpt from lambda_1 = lambda_2 = 0.9, seed: rng(3, "twister"), 20 post processing perturbations 
+    x = [3.41518115915436e-19;-1.77434731347731e-31;0.218343073588351;0.122522272106046;0.542145666615869;0.148918338874566;0.756551751364812;-0.0815904562051213;1;-8.71196966144387e-18;0.998894388778316;0.217359991897539;0.721604314204667;0.126925907858072;0.506571536504127;0.357625450095033;0.200418635143094;0.332016094813508;-0.00110561122168521;0.217359991897539;-0.0237141420178077;0.538754176016250;0.244907297013311;0.509356373280514;0.498410397749940;0.557174405790517;0.742235752030443;0.470042326789816;0.976285857982193;0.538754176016251;0.981457844265286;0.776706912982461;0.753254663041508;0.763615207612582;0.499493593936985;0.791598718679399;0.287012314311251;0.806219107287940;-0.0185421557347141;0.776706912982461;5.42216028917731e-18;1;0.218343073588351;1.12252227210605;0.542145666615869;1.14891833887457;0.756551751364812;0.918409543794878;1;1];
+    y = [1.05051775048501e-33;1.36480613528626e-18;-5.03660726210027e-18;0.200729816582132;0.137070227815271;0.0547112142286052;0.522109970957241;0.167117341731585;0.0702915370704601;0.663993313470627;-0.0907831263018998;-0.0384156766683944;0.900000000000000;2.87882107635592e-17;-6.03981294511484e-18;0.894079386522476;0.135893924421486;0.170176906133031;0.625833138159709;0.0339609578671692;0.128478420869026;0.483204974429579;0.292365189526130;0.236954321083634;0.179272045726360;0.263786681965989;0.221121891072435;-0.00592061347752497;0.135893924421486;0.170176906133031;-0.0246249537983399;0.447244257724843;0.0886257432363102;0.223296249892288;0.440064870943731;0.196930104098718;0.476975263376644;0.489534656866602;0.205431648041772;0.646941650936278;0.369285656600793;0.0508989314778936;0.875375046201660;0.447244257724843;0.0886257432363102;0.882286857670766;0.679713994724449;0.0377966138896006;0.658871849872141;0.657052298250449;-0.00999249142339743;0.479254730753498;0.720606323874594;0.161623583217648;0.266143770031365;0.732496883574956;0.144304073605431;-0.0177131423292340;0.679713994724449;0.0377966138896005;4.19804585172537e-18;0.900000000000000;-1.43430097110850e-18;0.200729816582132;1.03707022781527;0.0547112142286053;0.522109970957241;1.06711734173158;0.0702915370704601;0.663993313470627;0.809216873698101;-0.0384156766683943;0.900000000000000;0.900000000000000;8.70675169969928e-18];
+    % additional axial deformation on y
+    lambda_1 = 0.8;
+    lambda_2 = 0.8;
+    
+    phi = zeros(length(y));
+    for i = 1:length(y)
+        if mod(i,3) == 1
+            phi(i,i) = lambda_1/0.9;
+        elseif mod(i,3) == 2
+            phi(i,i) = lambda_2/0.9;
+        else
+            phi(i,i) = 1;
+        end    
+    end
+    y = phi*y;
+    
 elseif test == "shear"
+    % sheared initial x case
     %{
     gamma_x = 0;
-
-    % sheared initial x case
     phi_x = zeros(length(x), length(x));
     for i = 1:length(x)
         phi_x(i,i) = 1;
@@ -126,7 +185,7 @@ elseif test == "shear"
     end
 
 elseif test == "mix"
-    gamma = 0.20; % shear deformation
+    gamma = 0.2; % shear deformation
     lambda_1 = 0.75; % axial deformation
     lambda_2 = 0.75;
     for i = 1:length(x)/2*3
@@ -159,9 +218,12 @@ elseif test == "conditioned_20"
 elseif test == "conditioned_28"
     % xOpt from gamma = 0.28, lambda = 0.75; see conditioned_20 above 
     x = [1.16956000141296e-19; -6.85959494041963e-32; 0.263648456054710; -0.00830938488824884; 0.638133105865052; -0.0878169176446899; 0.773635949695853; -0.0662779093887950; 1; -3.34656760387148e-18; 1.07923943639164; 0.125108796340599; 0.774551511425953; 0.0625961887884249; 0.688748415828559; 0.0456780964248715; 0.300553839922697; 0.321186544895071; 0.0792394363916433; 0.125108796340599; -0.106776068316943; 0.546769856682162; 0.0429859317595547; 0.701721561987143; 0.429125786001006; 0.439880277027983; 0.733143035915184; 0.507421766998406; 0.893223931683058; 0.546769856682163; 0.929141910635002; 0.823871914370499; 0.782699927534252; 0.748967269672129; 0.549151002416303; 0.717073009587014; 0.177110013269285; 0.837588870875085; -0.0708580893649972; 0.823871914370499; -7.04052434619803e-18; 1; 0.263648456054710; 0.991690615111751; 0.638133105865052; 0.912183082355310; 0.808915015978653; 0.933722090611205; 1; 1];
+    % new xOpt using post processing clean up methods
+    x = [-5.63251315268542e-19;1.67820410905161e-31;0.139494982385109;-0.103702143084424;0.521732036052458;-0.216136702675179;0.738780186820239;-0.246735839673419;1;8.58198579747825e-18;0.974195844083898;0.0478881611374225;0.605764099656293;-0.117648706909661;0.559527674045171;-0.141869173036313;0.319313697704225;0.235351596946954;-0.0258041559161092;0.0478881611374222;-0.122274254694976;0.561052545516764;0.0664446293894950;0.660385048000903;0.320250007940977;0.295566027214427;0.641049896008555;0.448620668104801;0.877725745305024;0.561052545516765;0.967667187886938;0.753930663845213;0.735229385007454;0.695543172233824;0.469071735176112;0.601847707527864;0.0669335582174872;0.661692151107075;-0.0323328121130586;0.753930663845213;5.19405640878180e-18;1;0.139494982385109;0.896297856915576;0.521732036052458;0.783863297324816;0.774059253103038;0.753264160326583;1;1];
     % yOpt from gamma = 0.28, lambda = 0.75; see conditioned_20 above 
     y = [-3.48915169333884e-33; 1.77392444356641e-18; -7.58024365339307e-18; 0.251017434769753; 0.0694618453458889; -0.0321646715760294; 0.485813659054501; 0.265056611053120; -0.261151469097747; 0.585189905934480; 0.252205277795856; -0.156610439161887; 0.750000000000000; 0.280000000000000; -1.23328617921278e-17; 0.812095854224971; 0.385395798070430; 0.0865784401108210; 0.581426721746624; 0.378130651691637; -0.121459633912567; 0.515361219953316; 0.378995872252953; -0.180968159094347; 0.246597245576512; 0.301866974286361; 0.207605813524479; 0.0620958542249716; 0.105395798070430; 0.0865784401108209; 0.239920942453258; 0.359680540331123; -0.252544301276526; 0.371247268463906; 0.520175506003352; -0.183191798458047; 0.626221864416010; 0.626352405104659; -0.566135920182750; 0.864150887688107; 0.630410266180165; -0.361916776453368; 0.989920942453258; 0.639680540331123; -0.252544301276526; 0.985621390514721; 0.881098446679265; -0.111516297288067; 0.882459189039047; 0.840760102588080; -0.233272844606698; 0.703335975439426; 0.852445529748230; -0.383765372698334; 0.470143549194844; 0.677304705828165; -0.125419218810888; 0.235621390514721; 0.601098446679265; -0.111516297288067; 0.280000000000000; 0.750000000000000; 8.91667578561599e-19; 0.531017434769753; 0.819461845345889; -0.0321646715760295; 0.765813659054501; 1.01505661105312; -0.261151469097747; 0.891649205646581; 1.01208341635504; -0.156610439161887; 1.03000000000000; 1.03000000000000; 9.89984209184458e-18];
-    
+    % new yOpt using post processing clean up methods
+    y = [-1.10681393457758e-33;4.30325965056969e-18;-1.75727022332155e-17;0.141526424814643;-0.100496777044577;-0.00856760034187486;0.328495991743004;0.125462677132323;-0.277937883417519;0.542310950820319;0.0827573075925383;-0.222350807351853;0.750000000000000;0.270000000000000;-7.27353685527883e-18;0.721302979245862;0.313758971350425;0.0160788587004369;0.400868203568531;0.203114859078997;-0.203274342159298;0.359088497745558;0.186162541712691;-0.229199673054434;0.283538557637639;0.179782510108695;0.211910548329753;-0.0286970207541388;0.0437589713504213;0.0160788587004367;0.208265354337544;0.399225794255763;-0.284605819501074;0.376832412758749;0.471594249378657;-0.176213063182225;0.467022239148736;0.488350103054510;-0.610982622538714;0.749502979418140;0.593279904247951;-0.422815573822111;0.958265354337544;0.669225794255763;-0.284605819501075;1.02327423781014;0.828436721029936;-0.158909790151300;0.812481855471685;0.799559205805490;-0.269567120404470;0.574202192904441;0.740987957466006;-0.409180442653646;0.377133170844361;0.472764771365377;-0.175438625736366;0.273274237810136;0.558436721029935;-0.158909790151300;0.270000000000000;0.750000000000000;3.82814317032276e-18;0.411526424814642;0.649503222955418;-0.00856760034187490;0.598495991743000;0.875462677132330;-0.277937883417519;0.838770250532421;0.842282655488899;-0.222350807351853;1.02000000000000;1.02000000000000;1.96058271741934e-17];
     delta = 0.07; % additional shear on top of gamma above with fixed lambdas
     for i = 1:length(y)
         if mod(i,3) == 1
@@ -208,8 +270,34 @@ if contains(test, "conditioned") == 0 % only applicable for ICs at the original 
     y(60) = y(60)+epsilon;
 end
 
-% x rigidity constraint matrix (11x25) of (2x2)
-L_0 = [eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
+% x rigidity constraint matrix (10x25) of (2x2)
+L_0 = [-eye(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
+     zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
+     zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
+     zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
+     zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), eye(2);
+     -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2), zeros(2);
+     zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2);
+     zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2);
+     zeros(2), zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2);
+     eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2)];
+    
+% y rigidity constraint matrix (10x25) of (3x3)
+L = [-eye(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3);
+     zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3), zeros(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3);
+     zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3);
+     zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3), zeros(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3);
+     zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), eye(3);
+    -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3), zeros(3), zeros(3), zeros(3);
+     zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3), zeros(3), zeros(3);
+     zeros(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3), zeros(3);
+     zeros(3), zeros(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3);
+     eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3)];
+
+% fixed slit constraint for slit test
+if slit_test
+if panelRemoval==1 % one parallelogram slit
+L_0 = [zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), -eye(2), zeros(2), zeros(2), eye(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
     -eye(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
      zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
      zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
@@ -219,190 +307,73 @@ L_0 = [eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros
      zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2);
      zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2);
      zeros(2), zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2);
-     zeros(2), zeros(2), zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2)];
-    
-% y rigidity constraint matrix (11x25) of (3x3)
-L = [eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3);
-    -eye(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3);
-     zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3), zeros(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3);
-     zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3);
-     zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3), zeros(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3);
-     zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), eye(3);
-    -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3), zeros(3), zeros(3), zeros(3);
-     zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3), zeros(3), zeros(3);
-     zeros(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3), zeros(3);
-     zeros(3), zeros(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3);
-     zeros(3), zeros(3), zeros(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3)];
+     eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2)];
+end
+if panelRemoval==2 % two parallelogram slits
+L_0 = [zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), -eye(2), zeros(2), zeros(2), eye(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
+     zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), -eye(2), eye(2), zeros(2), zeros(2), -eye(2), eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
+     -eye(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
+     zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
+     zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
+     zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
+     zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), eye(2);
+     -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2), zeros(2);
+     zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2);
+     zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2);
+     zeros(2), zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2);
+     zeros(2), zeros(2), zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2);
+     eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2)];
+end
+end
 
 % populate the vector numbering all of the panels
 J = 1:16;
 
 % index set for each panel 
-F1 = [1, 2, 9, 10];
-F2 = [2, 3, 8, 9];
-F3 = [3, 4, 7, 8];
-F4 = [4, 5, 6, 7];
-F5 = [6, 7, 14, 15];
-F6 = [7, 8, 13, 14];
-F7 = [8, 9, 12, 13];
-F8 = [9, 10, 11, 12];
-F9 = [11, 12, 19, 20];
-F10 = [12, 13, 18, 19];
-F11 = [13, 14, 17, 18];
-F12 = [14, 15, 16, 17];
-F13 = [16, 17, 24, 25];
-F14 = [17, 18, 23, 24];
-F15 = [18, 19, 22, 23];
-F16 = [19, 20, 21, 22];
-
+P1 = [1, 2, 9, 10];
+P2 = [2, 3, 8, 9];
+P3 = [3, 4, 7, 8];
+P4 = [4, 5, 6, 7];
+P5 = [6, 7, 14, 15];
+P6 = [7, 8, 13, 14];
+P7 = [8, 9, 12, 13];
+P8 = [9, 10, 11, 12];
+P9 = [11, 12, 19, 20];
+P10 = [12, 13, 18, 19];
+P11 = [13, 14, 17, 18];
+P12 = [14, 15, 16, 17];
+P13 = [16, 17, 24, 25];
+P14 = [17, 18, 23, 24];
+P15 = [18, 19, 22, 23];
+P16 = [19, 20, 21, 22];
 if panelRemoval == 1
     J = 1:15;
-    F7 = F8;
-    F8 = F9;
-    F9 = F10;
-    F10 = F11;
-    F11 = F12;
-    F12 = F13;
-    F13 = F14;
-    F14 = F15;
-    F15 = F16;
+    P7 = P8;
+    P8 = P9;
+    P9 = P10;
+    P10 = P11;
+    P11 = P12;
+    P12 = P13;
+    P13 = P14;
+    P14 = P15;
+    P15 = P16;
 elseif panelRemoval == 2
     J = 1:14;
-    F7 = F8;
-    F8 = F9;
-    F9 = F10;
-    F10 = F12;
-    F11 = F13;
-    F12 = F14;
-    F13 = F15;
-    F14 = F16;
-end
-
-if crease_test == "Miura4x4_diagonal1" || crease_test == "Miura4x4_diagonal1_flip" % middle diagonal crease
-    F20 = F16;
-    F19 = F15;
-    F18 = F14;
-    F17 = [17, 24, 25];
-    F16 = [16, 17, 25];
-    F15 = F12;
-    F14 = [13, 14, 17];
-    F13 = [13, 17, 18];
-    F12 = F10;
-    F11 = F9;
-    F10 = F8;
-    F9 = [9, 12, 13];
-    F8 = [8, 9, 13];
-    F7 = F6;
-    F6 = F5;
-    F5 = F4;
-    F4 = F3;
-    F3 = F2;
-    F2 = [1, 2, 9];
-    F1 = [1, 9, 10];
-
-    if crease_test == "Miura4x4_diagonal1_flip"
-        F1 = [1, 2, 10];
-        F2 = [2, 9, 10];
-        F8 = [8, 12, 13];
-        F9 = [8, 9, 12];
-        F13 = [13, 14, 18];
-        F14 = [14, 17, 18];
-        F16 = [16, 24, 25];
-        F17 = [16, 17, 24];
-    end    
-
-    T17 = F17;
-    T18 = F18;
-    T19 = F19;
-    T20 = F20;
-    J = 1:20;
-end
-
-if crease_test == "Miura4x4_diagonal2" || crease_test == "Miura4x4_diagonal1_flip" % 2 additional diagonal creases
-    F24 = F16;
-    F23 = [19; 22; 23];
-    F22 = [19; 18; 23];
-    F21 = F14;
-    F20 = [17; 24; 25];
-    F19 = [16; 17; 25];
-    F18 = F12;
-    F17 = [13; 14; 17];
-    F16 = [13; 17; 18];
-    F15 = F10;
-    F14 = [11; 12; 19];
-    F13 = [11; 19; 20];
-    F12 = F8;
-    F11 = [9; 12; 13];
-    F10 = [8; 9; 13];
-    F9 = F6;
-    F8 = [7; 14; 15];
-    F7 = [6; 7; 15];
-    F6 = F4;
-    F5 = [3; 4; 7];
-    F4 = [3; 7; 8];
-    F3 = F2;
-    F2 = [1; 2; 9];
-    F1 = [1; 9; 10];
-
-    if crease_test == "Miura4x4_diagonal2_flip"
-        F1 = [1, 2, 10];
-        F2 = [2, 9, 10];
-        F4 = [3, 4, 8];
-        F5 = [4, 7, 8];
-        F7 = [6, 14, 15];
-        F8 = [6, 7, 14];
-        F9 = [8, 9, 12];
-        F10 = [8, 12, 13];
-        F11 = [8, 9, 12];
-        F13 = [11, 12, 20];
-        F14 = [12, 19, 20];
-        F16 = [13, 14, 18];
-        F17 = [14, 17, 18];
-        F19 = [16, 24, 25];
-        F20 = [16, 17, 24];
-        F22 = [18, 22, 23];
-        F23 = [18, 19, 22];
-    end   
-
-    T17 = F17;
-    T18 = F18;
-    T19 = F19;
-    T20 = F20;
-    T21 = F21;
-    T22 = F22;
-    T23 = F23;
-    T24 = F24;
-    J = 1:24;
-end
-
-T1 = F1;
-T2 = F2;
-T3 = F3;
-T4 = F4;
-T5 = F5;
-T6 = F6;
-T7 = F7;
-T8 = F8;
-T9 = F9;
-T10 = F10;
-T11 = F11;
-T12 = F12;
-T13 = F13;
-T14 = F14;
-if panelRemoval ~= 2
-    T15 = F15;
-end
-if panelRemoval == 0
-    T16 = F16;
+    P7 = P8;
+    P8 = P9;
+    P9 = P10;
+    P10 = P12;
+    P11 = P13;
+    P12 = P14;
+    P13 = P15;
+    P14 = P16;
 end
 
 % 3D array containing index set of x coordinates for panel j
-Tj = cell(length(J), 1);
+Pj = cell(length(J), 1);
 for j=1:length(J)
-    Tj{j} = eval(sprintf('T%d', j));
+    Pj{j} = eval(sprintf('P%d', j));
 end
-
-Fj = Tj;
 
 % Initial R 
 for j = 1:length(J)
@@ -412,102 +383,117 @@ end
 % initial tolerance for minimization
 tol = 10^(-5);
 
-[yOpt, xOpt, Ropt] = minimizationAlgorithm(x, y, Fj, Tj, J, R, L, L_0, tol);
-%{
-titles = {'Initial X', 'Initial Y', 'Final X', 'Final Y'};
-vectors = {x, y, xOpt, yOpt};
-visualizeLatticeVec = true;
-plot4vectors3D(vectors, titles, visualizeLatticeVec, crease_test);
-%}
+figure
+ax = gca;
+hold(ax,'on')
+set(ax,'YScale','log')
+ax.FontSize = 16;
+[yOpt, xOpt, Ropt, ax, iterOffset] = minimizationAlgorithm(x, y, Pj, J, R, L, L_0, tol, ax);
+
 % post-processing
-% random perturbation post-processing step
 E = 1; % initialize energy
-postprocessing_count = 0;
-while E > 5*10^(-5)
-r = normrnd(0, 0.001, [length(x), 1]);
-r_y = normrnd(0, 0.001, [length(y), 1]);
-
-% only perturb eligible DoFs
-r(1:2) = 0; % fixed first node
-r(41:50) = 0; % top nodes
-r(9:12) = 0; % side nodes
-r(29:32) = 0; % side nodes
-r_y(1:3) = 0; % fixed first node
-r_y(end-14:end) = 0; % top nodes
-r_y(13:18) = 0; % side nodes
-r_y(43:48) = 0; % side nodes
-
-x_perturbed = xOpt + r;
-y_perturbed = yOpt + r_y;
-
-% maintain original lattice vectors post-perturbation
-x_perturbed(11) = xOpt(11) + r(19); % shift right side nodes
-x_perturbed(12) = xOpt(12) + r(20);
-x_perturbed(29) = xOpt(29) + r(21);
-x_perturbed(30) = xOpt(30) + r(22);
-x_perturbed(31) = xOpt(31) + r(39);
-x_perturbed(32) = xOpt(32) + r(40);
-x_perturbed(43) = xOpt(43) + r(3); % shift top side nodes
-x_perturbed(44) = xOpt(44) + r(4);
-x_perturbed(45) = xOpt(45) + r(5);
-x_perturbed(46) = xOpt(46) + r(6);
-x_perturbed(47) = xOpt(47) + r(7);
-x_perturbed(48) = xOpt(48) + r(8);
-
-y_perturbed(16) = yOpt(16) + r_y(28); % shift right side nodes
-y_perturbed(17) = yOpt(17) + r_y(29);
-y_perturbed(18) = yOpt(18) + r_y(30);
-y_perturbed(43) = yOpt(43) + r_y(31);
-y_perturbed(44) = yOpt(44) + r_y(32);
-y_perturbed(45) = yOpt(45) + r_y(33);
-y_perturbed(46) = yOpt(46) + r_y(58);
-y_perturbed(47) = yOpt(47) + r_y(59);
-y_perturbed(48) = yOpt(48) + r_y(60);
-y_perturbed(64) = yOpt(64) + r_y(4); % shift top side nodes
-y_perturbed(65) = yOpt(65) + r_y(5);
-y_perturbed(66) = yOpt(66) + r_y(6);
-y_perturbed(67) = yOpt(67) + r_y(7);
-y_perturbed(68) = yOpt(68) + r_y(8);
-y_perturbed(69) = yOpt(69) + r_y(9);
-y_perturbed(70) = yOpt(70) + r_y(10);
-y_perturbed(71) = yOpt(71) + r_y(11);
-y_perturbed(72) = yOpt(72) + r_y(12);
-
-disp("Starting perturbation minimization...")
-[yOpt, xOpt, Ropt] = minimizationAlgorithm(x_perturbed, y_perturbed, Fj, Tj, J, Ropt, L, L_0, tol);
-
-% Compute energy associated with solution
-E = 0;
-
-% Construct necessary cj and rij vectors
-cj = cell(length(J));
-rij = cell(length(J));
-for j = 1:length(J)
-    % center of the panel calculation based on initial y vector
-    [cj{j}, ~] = centerOfPanel3D(Fj{j}, yOpt);
-
-    % pos vectors with respect to the center of the panel
-    [~, rij{j}] = centerOfPanel2D(Tj{j}, xOpt);
-end
-
-for j = 1:length(J)
-    for i = 1:length(Fj{j})
-        k = Fj{j}(i);
-
-        rij_temp = rij{j}(2*i-1:2*i);
-        rij1 = rij_temp(1);
-        rij2 = rij_temp(2);
-        
-        E = E + norm(yOpt(3*k-2:3*k, 1) - cj{j} - Ropt{j}*[rij1; rij2; 0])^2;
+count = 0;
+max_count = 1000;
+while E > tol && count < max_count
+    % random perturbation post-processing step
+    rng(5, "twister")
+    r = normrnd(0, 10^(-5), [length(x), 1]);
+    r_y = normrnd(0, 10^(-5), [length(y), 1]);
+    
+    % only perturb eligible DoFs
+    r(1:2) = 0; % fixed first node
+    r(41:50) = 0; % top nodes
+    r(9:12) = 0; % side nodes
+    r(29:32) = 0; % side nodes
+    r_y(1:3) = 0; % fixed first node
+    r_y(end-14:end) = 0; % top nodes
+    r_y(13:18) = 0; % side nodes
+    r_y(43:48) = 0; % side nodes
+    
+    x_perturbed = xOpt + r;
+    y_perturbed = yOpt + r_y;
+    
+    % maintain original lattice vectors post-perturbation
+    x_perturbed(11) = xOpt(11) + r(19); % shift right side nodes
+    x_perturbed(12) = xOpt(12) + r(20);
+    x_perturbed(29) = xOpt(29) + r(21);
+    x_perturbed(30) = xOpt(30) + r(22);
+    x_perturbed(31) = xOpt(31) + r(39);
+    x_perturbed(32) = xOpt(32) + r(40);
+    x_perturbed(43) = xOpt(43) + r(3); % shift top side nodes
+    x_perturbed(44) = xOpt(44) + r(4);
+    x_perturbed(45) = xOpt(45) + r(5);
+    x_perturbed(46) = xOpt(46) + r(6);
+    x_perturbed(47) = xOpt(47) + r(7);
+    x_perturbed(48) = xOpt(48) + r(8);
+    if slit_test
+    x_perturbed(25:26) = xOpt(25:26) + r(15:16) - r(17:18) + r(23:24); % shift x13 to enforce parallelogram slit
+    if panelRemoval == 2
+    x_perturbed(33:34) = xOpt(33:34) + r(27:28) - r(25:26) + r(35:36); % shift x17 to enforce parallelogram slit
     end
-end 
-postprocessing_count = postprocessing_count + 1;
+    end
+    
+    y_perturbed(16) = yOpt(16) + r_y(28); % shift right side nodes
+    y_perturbed(17) = yOpt(17) + r_y(29);
+    y_perturbed(18) = yOpt(18) + r_y(30);
+    y_perturbed(43) = yOpt(43) + r_y(31);
+    y_perturbed(44) = yOpt(44) + r_y(32);
+    y_perturbed(45) = yOpt(45) + r_y(33);
+    y_perturbed(46) = yOpt(46) + r_y(58);
+    y_perturbed(47) = yOpt(47) + r_y(59);
+    y_perturbed(48) = yOpt(48) + r_y(60);
+    y_perturbed(64) = yOpt(64) + r_y(4); % shift top side nodes
+    y_perturbed(65) = yOpt(65) + r_y(5);
+    y_perturbed(66) = yOpt(66) + r_y(6);
+    y_perturbed(67) = yOpt(67) + r_y(7);
+    y_perturbed(68) = yOpt(68) + r_y(8);
+    y_perturbed(69) = yOpt(69) + r_y(9);
+    y_perturbed(70) = yOpt(70) + r_y(10);
+    y_perturbed(71) = yOpt(71) + r_y(11);
+    y_perturbed(72) = yOpt(72) + r_y(12);
+    
+    disp("Starting perturbation minimization...")
+    [yOpt_perturbed, xOpt_perturbed, Ropt, ax, iterOffset] = minimizationAlgorithm(x_perturbed, y_perturbed, Pj, J, R, L, L_0, tol, ax, iterOffset);
+
+    xOpt = xOpt_perturbed;
+    yOpt = yOpt_perturbed;
+
+    % Compute energy associated with solution
+    E = 0;
+    
+    % Construct necessary cj and rij vectors
+    cj = cell(length(J));
+    rij = cell(length(J));
+    for j = 1:length(J)
+        % center of the panel calculation based on initial y vector
+        [cj{j}, ~] = centerOfPanel3D(Pj{j}, yOpt);
+    
+        % pos vectors with respect to the center of the panel
+        [~, rij{j}] = centerOfPanel2D(Pj{j}, xOpt);
+    end
+    
+    for j = 1:length(J)
+        for i = 1:length(Pj{j})
+            k = Pj{j}(i);
+    
+            rij_temp = rij{j}(2*i-1:2*i);
+            rij1 = rij_temp(1);
+            rij2 = rij_temp(2);
+            
+            E = E + norm(yOpt(3*k-2:3*k, 1) - cj{j} - Ropt{j}*[rij1; rij2; 0])^2;
+        end
+    end 
+    disp("Energy: " + E)
+    if E < tol || count == max_count-1
+        titles = {'Initial X', 'Initial Y', 'Final X', 'Final Y'};
+        vectors = {x, y, xOpt, yOpt};
+        visualizeLatticeVec = true;
+        plot4vectors3D(vectors, titles, visualizeLatticeVec, crease_test);
+    end
+    count = count + 1;
 end
 
-titles = {'Initial X', 'Initial Y', 'Final X', 'Final Y'};
-vectors = {x, y, xOpt, yOpt};
-visualizeLatticeVec = true;
-plot4vectors3D(vectors, titles, visualizeLatticeVec, crease_test);
+disp("Total post-processing steps: "+count)
 
 % check for concavity
 if (xOpt(24)-xOpt(22))/(xOpt(23)-xOpt(21)) * (xOpt(37)-xOpt(21)) + xOpt(22) < xOpt(38)
@@ -515,4 +501,35 @@ if (xOpt(24)-xOpt(22))/(xOpt(23)-xOpt(21)) * (xOpt(37)-xOpt(21)) + xOpt(22) < xO
 else
     disp("Concave...")
 end
-disp("Number of post-processing steps required: "+postprocessing_count)
+
+% check strains
+if check_strain
+    nodes = reshape(1:25, 5, 5)'; % Standard row-major grid
+    nodes(2:2:end, :) = fliplr(nodes(2:2:end, :)); % Flip even rows for snake pattern
+    E_h = [reshape(nodes(:, 1:end-1), [], 1), reshape(nodes(:, 2:end), [], 1)]; % (connect neighbors in the same row)
+    E_v = [reshape(nodes(1:end-1, :), [], 1), reshape(nodes(2:end, :), [], 1)]; % (connect neighbors in the same column)
+    edges = [E_h; E_v]; % combine
+    edges = sort(edges, 2); % [smaller_node, larger_node] per row
+    edges = sortrows(unique(edges, 'rows')); % remove duplicates, sort the list
+    l0 = zeros(length(edges), 1);
+    l = zeros(length(edges), 1);
+    strains = zeros(length(edges), 1);
+    % compute strains for each edge
+    for i = 1:length(edges)
+        x_a = [xOpt(2*edges(i,1)-1), xOpt(2*edges(i,1))]; % node 1 of the i-th edge
+        x_b = [xOpt(2*edges(i,2)-1), xOpt(2*edges(i,2))]; % node 2 of the i-th edge
+        l0(i) = norm(x_a - x_b); % reference configuration lengths
+        y_a = [yOpt(3*edges(i,1)-2), yOpt(3*edges(i,1)-1), yOpt(3*edges(i,1))];
+        y_b = [yOpt(3*edges(i,2)-2), yOpt(3*edges(i,2)-1), yOpt(3*edges(i,2))];
+        l(i) = norm(y_a - y_b); % deformed configuration lengths
+        strains(i) = (l(i) - l0(i))/l0(i); % resultant strains from the deformation
+    end
+    [max_val, max_idx] = max(abs(strains));
+    disp("Max strain: " + strains(max_idx) + " @ edge (" + edges(max_idx, 1) + ", " + edges(max_idx, 2) + ")")
+    disp("Average absolute strain: " + mean(abs(strains)))
+    disp("Total absolute strain: " + sum(abs(strains)))
+end
+
+
+% compute geometric stiffness
+K = geometricStiffness(xOpt, yOpt, Ropt, Pj, J, L, 5, 4, 3, "translation");

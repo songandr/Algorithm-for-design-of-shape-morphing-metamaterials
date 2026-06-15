@@ -11,38 +11,36 @@ function [xOpt, yOpt, E] = Miura_Axial_Test(x, y)
 % yOpt: energy minimizing deformed configuration vertices (length 3N)
 
 % x rigidity constraint matrix (7x9) of (2x2)
-L_0 = [eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
-    -eye(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
+L_0 = [-eye(2), zeros(2), eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2);
      zeros(2), zeros(2), zeros(2), eye(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2);
      zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), -eye(2), zeros(2), eye(2);
      -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2), zeros(2);
      zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2), zeros(2);
-     zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2);];
+     zeros(2), zeros(2), -eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), eye(2);
+     eye(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2), zeros(2)];
     
 % y rigidity constraint matrix (7x9) of (3x3)
-L = [eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3);
-    -eye(3), zeros(3), eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3);
+L = [-eye(3), zeros(3), eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3);
      zeros(3), zeros(3), zeros(3), eye(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3);
      zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), -eye(3), zeros(3), eye(3);
      -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3), zeros(3);
      zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3), zeros(3);
-     zeros(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3);];
+     zeros(3), zeros(3), -eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), eye(3);
+     eye(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3), zeros(3)];
 
 % populate the vector numbering all of the panels
 J = [1, 2, 3, 4];
 
-T1 = [1, 2, 5, 6];
-T2 = [2, 3, 4, 5];
-T3 = [5, 6, 7, 8];
-T4 = [4, 5, 8, 9];
+P1 = [1, 2, 5, 6];
+P2 = [2, 3, 4, 5];
+P3 = [5, 6, 7, 8];
+P4 = [4, 5, 8, 9];
 
 % 3D array containing index set of x coordinates for panel j
-Tj = cell(length(J), 1);
+Pj = cell(length(J), 1);
 for j=1:length(J)
-    Tj{j} = eval(sprintf('T%d', j));
+    Pj{j} = eval(sprintf('P%d', j));
 end
-
-Fj = Tj;
 
 % Initial R 
 for j = 1:length(J)
@@ -52,7 +50,7 @@ end
 % tolerance for minimization
 tol = 10^(-5);
 
-[yOpt, xOpt, ~] = minimizationAlgorithm(x, y, Fj, Tj, J, R, L, L_0, tol);
+[yOpt, xOpt, ~] = minimizationAlgorithm(x, y, Pj, J, R, L, L_0, tol);
 
 % random perturbation post-processing step
 E = 1; % initialize energy
@@ -87,7 +85,7 @@ y_perturbed(end-4) = yOpt(end-4) + r_y(5);
 y_perturbed(end-3) = yOpt(end-3) + r_y(6);
 
 disp("Starting perturbation minimization...")
-[yOpt, xOpt, Ropt] = minimizationAlgorithm(x_perturbed, y_perturbed, Fj, Tj, J, R, L, L_0, tol);
+[yOpt, xOpt, Ropt] = minimizationAlgorithm(x_perturbed, y_perturbed, Pj, J, R, L, L_0, tol);
 
 % Compute energy associated with solution
 E = 0;
@@ -97,15 +95,15 @@ cj = cell(length(J));
 rij = cell(length(J));
 for j = 1:length(J)
     % center of the panel calculation based on initial y vector
-    [cj{j}, ~] = centerOfPanel3D(Fj{j}, yOpt);
+    [cj{j}, ~] = centerOfPanel3D(Pj{j}, yOpt);
 
     % pos vectors with respect to the center of the panel
-    [~, rij{j}] = centerOfPanel2D(Tj{j}, xOpt);
+    [~, rij{j}] = centerOfPanel2D(Pj{j}, xOpt);
 end
 
 for j = 1:length(J)
-    for i = 1:length(Fj{j})
-        k = Fj{j}(i);
+    for i = 1:length(Pj{j})
+        k = Pj{j}(i);
 
         rij_temp = rij{j}(2*i-1:2*i);
         rij1 = rij_temp(1);
